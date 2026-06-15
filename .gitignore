@@ -1,0 +1,7 @@
+data/*.sqlite
+data/*.sqlite-*
+temp-export-check.json
+__pycache__/
+server.pid
+server.log
+server.err.log

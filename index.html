@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Film Randomizer</title>
+    <script>
+      try {
+        const savedTheme = localStorage.getItem("film-randomizer.theme");
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.theme = savedTheme || (prefersDark ? "dark" : "light");
+      } catch {
+        document.documentElement.dataset.theme = "light";
+      }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell" id="appShell">
+      <section class="toolbar" aria-label="Панель приложения">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">FR</span>
+          <div>
+            <h1>Film Randomizer</h1>
+            <p>Коллекция фильмов для вечера</p>
+          </div>
+        </div>
+
+        <form class="add-form" id="movieForm" hidden>
+          <label class="field">
+            <span>Название фильма</span>
+            <input
+              id="movieTitle"
+              name="movieTitle"
+              type="search"
+              placeholder="Например, Славные парни"
+              autocomplete="off"
+              required
+            >
+          </label>
+          <button class="primary-button" type="submit">Сохранить</button>
+        </form>
+
+        <div class="user-panel" id="userPanel" hidden>
+          <span id="currentUser"></span>
+          <button class="ghost-button" id="logoutButton" type="button">Выйти</button>
+        </div>
+
+        <div class="search-results" id="searchResults" hidden></div>
+      </section>
+
+      <section class="auth-section" id="authSection" aria-label="Авторизация">
+        <form class="auth-form" id="authForm">
+          <label class="field">
+            <span>Логин</span>
+            <input id="username" name="username" autocomplete="username" required>
+          </label>
+          <label class="field">
+            <span>Пароль</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <div class="auth-actions">
+            <button class="primary-button" type="submit" data-action="login">Войти</button>
+            <button class="ghost-button" type="submit" data-action="register">Создать</button>
+          </div>
+        </form>
+        <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
+      </section>
+
+      <div class="app-content" id="appContent" hidden>
+        <section class="action-strip" aria-label="Выбор фильма">
+          <div class="random-controls">
+            <button class="pick-button" id="pickMovie" type="button">Выбрать фильм</button>
+            <label class="random-watched-toggle">
+              <input id="includeWatchedRandom" type="checkbox">
+              <span>Просмотренные</span>
+            </label>
+          </div>
+          <div class="picked-movie" id="pickedMovie" aria-live="polite">
+            <span class="muted">Непросмотренные фильмы ждут своего часа.</span>
+          </div>
+          <div class="picked-details" id="pickedDetails" hidden></div>
+        </section>
+
+        <section class="settings" aria-label="Настройки">
+          <label class="ghost-button file-button" for="movieImportFile">Импорт TXT</label>
+          <input id="movieImportFile" type="file" accept=".txt,text/plain" hidden>
+          <label class="theme-toggle" for="themeToggle">
+            <input id="themeToggle" type="checkbox">
+            <span class="theme-track" aria-hidden="true">
+              <span class="theme-thumb"></span>
+            </span>
+            <span class="theme-label" id="themeLabel">Светлая тема</span>
+          </label>
+        </section>
+
+        <section class="status-row" aria-label="Статистика">
+          <div>
+            <strong id="totalCount">0</strong>
+            <span>всего</span>
+          </div>
+          <div>
+            <strong id="unwatchedCount">0</strong>
+            <span>непросмотрено</span>
+          </div>
+          <div>
+            <strong id="inCollectionsCount">0</strong>
+            <span>в коллекциях</span>
+          </div>
+          <div>
+            <strong id="watchedCount">0</strong>
+            <span>просмотрено</span>
+          </div>
+        </section>
+
+        <section class="collections-section" aria-labelledby="collectionsTitle">
+          <div class="section-heading">
+            <h2 id="collectionsTitle">Коллекции</h2>
+            <div class="section-actions">
+              <button class="ghost-button" id="showAllMovies" type="button">Все фильмы</button>
+              <button class="ghost-button" id="editSelectedCollection" type="button" hidden>Настроить</button>
+              <button class="primary-button" id="createCollection" type="button">Создать коллекцию</button>
+            </div>
+          </div>
+
+          <div class="collection-list" id="collectionList"></div>
+        </section>
+
+        <section class="movie-section" aria-labelledby="cardsTitle">
+          <div class="section-heading">
+            <h2 id="cardsTitle">Все фильмы</h2>
+            <button class="ghost-button danger" id="clearWatched" type="button">Убрать просмотренные</button>
+          </div>
+          <div class="message" id="message" role="status" aria-live="polite"></div>
+          <div class="cards-grid" id="cardsGrid"></div>
+          <button class="ghost-button show-more" id="showMoreMovies" type="button" hidden>Показать ещё</button>
+        </section>
+      </div>
+    </main>
+
+    <div class="modal-backdrop" id="collectionModal" hidden>
+      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="collectionModalTitle">
+        <div class="modal-header">
+          <h3 id="collectionModalTitle">Коллекция</h3>
+          <button class="icon-button" id="closeCollectionModal" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <form class="modal-form" id="collectionForm">
+          <label class="field">
+            <span>Название коллекции</span>
+            <input id="collectionName" placeholder="Например, На выходные" required>
+          </label>
+          <label class="field">
+            <span>Поиск по фильмам</span>
+            <input id="collectionMovieSearch" type="search" placeholder="Начните вводить название">
+          </label>
+          <div class="movie-picker modal-movie-picker" id="collectionMoviePicker"></div>
+          <div class="modal-actions">
+            <button class="primary-button" type="submit">Сохранить</button>
+            <button class="ghost-button danger" id="deleteCollection" type="button" hidden>Удалить</button>
+            <button class="ghost-button" id="cancelCollectionModal" type="button">Отмена</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="importModal" hidden>
+      <section class="modal-panel import-panel" role="dialog" aria-modal="true" aria-labelledby="importModalTitle">
+        <div class="modal-header">
+          <h3 id="importModalTitle">Импорт из TXT</h3>
+          <button class="icon-button" id="closeImportModal" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div class="import-summary" id="importSummary"></div>
+        <div class="import-review-list" id="importReviewList"></div>
+        <div class="modal-actions">
+          <button class="primary-button" id="confirmImport" type="button">Добавить выбранные</button>
+          <button class="ghost-button" id="cancelImport" type="button">Отмена</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="plotModal" hidden>
+      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="plotModalTitle">
+        <div class="modal-header">
+          <h3 id="plotModalTitle">Аннотация</h3>
+          <button class="icon-button" id="closePlotModal" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <p class="plot-modal-body" id="plotModalBody"></p>
+      </section>
+    </div>
+
+    <template id="movieCardTemplate">
+      <article class="movie-card">
+        <img class="poster" alt="">
+        <div class="card-body">
+          <div class="card-topline">
+            <span class="year"></span>
+            <span class="rating"></span>
+          </div>
+          <h3 class="title"></h3>
+          <p class="meta"></p>
+          <p class="plot"></p>
+          <div class="card-actions">
+            <label class="watched-toggle">
+              <input class="watched-input" type="checkbox">
+              <span>Просмотрено</span>
+            </label>
+            <button class="icon-button remove-button" type="button" aria-label="Удалить">×</button>
+          </div>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
