@@ -69,12 +69,39 @@
 
       <div class="app-content" id="appContent" hidden>
         <section class="action-strip" aria-label="Выбор фильма">
-          <div class="random-controls">
-            <button class="pick-button" id="pickMovie" type="button">Выбрать фильм</button>
-            <label class="random-watched-toggle">
-              <input id="includeWatchedRandom" type="checkbox">
-              <span>Просмотренные</span>
-            </label>
+          <div class="random-left">
+            <div class="random-controls">
+              <button class="pick-button" id="pickMovie" type="button">Выбрать фильм</button>
+              <button class="ghost-button random-settings-toggle" id="randomSettingsToggle" type="button" aria-expanded="false" aria-controls="randomSettings">Настройки выбора</button>
+            </div>
+            <div class="random-settings-panel" id="randomSettings" hidden>
+              <div class="random-setting-row">
+                <label class="random-watched-toggle">
+                  <input id="includeWatchedRandom" type="checkbox">
+                  <span>Просмотренные</span>
+                </label>
+              </div>
+              <div class="random-setting-row">
+                <label class="random-duration-toggle">
+                  <input id="durationFilterEnabled" type="checkbox">
+                  <span>Длительность</span>
+                </label>
+                <div class="duration-range" id="durationRangeGroup" aria-label="Диапазон длительности">
+                  <label class="duration-option">
+                    <input class="duration-range-input" type="radio" name="durationRange" value="short" disabled>
+                    <span>Короткий</span>
+                  </label>
+                  <label class="duration-option">
+                    <input class="duration-range-input" type="radio" name="durationRange" value="standard" checked disabled>
+                    <span>Стандартный</span>
+                  </label>
+                  <label class="duration-option">
+                    <input class="duration-range-input" type="radio" name="durationRange" value="long" disabled>
+                    <span>Длинный</span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="picked-movie" id="pickedMovie" aria-live="polite">
             <span class="muted">Непросмотренные фильмы ждут своего часа.</span>
@@ -194,6 +221,7 @@
         <div class="card-body">
           <div class="card-topline">
             <span class="year"></span>
+            <span class="runtime"></span>
             <span class="rating"></span>
           </div>
           <h3 class="title"></h3>

@@ -43,7 +43,12 @@ const elements = {
   themeToggle: document.querySelector("#themeToggle"),
   themeLabel: document.querySelector("#themeLabel"),
   pickMovie: document.querySelector("#pickMovie"),
+  randomSettingsToggle: document.querySelector("#randomSettingsToggle"),
+  randomSettings: document.querySelector("#randomSettings"),
   includeWatchedRandom: document.querySelector("#includeWatchedRandom"),
+  durationFilterEnabled: document.querySelector("#durationFilterEnabled"),
+  durationRangeGroup: document.querySelector("#durationRangeGroup"),
+  durationRangeInputs: document.querySelectorAll(".duration-range-input"),
   pickedMovie: document.querySelector("#pickedMovie"),
   pickedDetails: document.querySelector("#pickedDetails"),
   searchResults: document.querySelector("#searchResults"),
@@ -83,6 +88,7 @@ const elements = {
 };
 
 applyTheme(getPreferredTheme());
+syncRandomDurationControls();
 renderShell();
 render();
 
@@ -210,12 +216,17 @@ elements.themeToggle.addEventListener("change", () => {
   applyTheme(theme);
 });
 
+elements.randomSettingsToggle.addEventListener("click", () => {
+  const isOpen = elements.randomSettings.hidden;
+  elements.randomSettings.hidden = !isOpen;
+  elements.randomSettingsToggle.setAttribute("aria-expanded", String(isOpen));
+  elements.randomSettingsToggle.classList.toggle("is-open", isOpen);
+});
+
 elements.pickMovie.addEventListener("click", async () => {
   const pool = getRandomMoviePool();
   if (!pool.length) {
-    elements.pickedMovie.innerHTML = elements.includeWatchedRandom.checked
-      ? "<span class=\"muted\">В текущем разделе нет фильмов.</span>"
-      : "<span class=\"muted\">Нет непросмотренных фильмов.</span>";
+    elements.pickedMovie.innerHTML = `<span class="muted">${getRandomEmptyMessage()}</span>`;
     elements.pickedDetails.hidden = true;
     elements.pickedDetails.innerHTML = "";
     return;
@@ -237,6 +248,17 @@ elements.pickMovie.addEventListener("click", async () => {
 
 elements.includeWatchedRandom.addEventListener("change", () => {
   render();
+});
+
+elements.durationFilterEnabled.addEventListener("change", () => {
+  syncRandomDurationControls();
+  render();
+});
+
+elements.durationRangeInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    render();
+  });
 });
 
 elements.clearWatched.addEventListener("click", async () => {
@@ -1080,12 +1102,16 @@ function renderCards() {
 
     const originalTitle = movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : "";
     const rating = card.querySelector(".rating");
+    const runtime = card.querySelector(".runtime");
 
     card.querySelector(".year").textContent = movie.year || "год ?";
+    runtime.textContent = movie.runtime || "";
+    runtime.title = movie.runtime ? `Длительность: ${movie.runtime}` : "";
+    runtime.hidden = !movie.runtime;
     rating.textContent = movie.rating ? `IMDb ${movie.rating}` : "IMDb —";
     rating.title = movie.rating ? `IMDb ${movie.rating}` : "Рейтинг не найден";
     card.querySelector(".title").textContent = movie.title;
-    card.querySelector(".meta").textContent = [originalTitle, movie.genre, movie.runtime, movie.director].filter(Boolean).join(" • ");
+    card.querySelector(".meta").textContent = [originalTitle, movie.genre, movie.director].filter(Boolean).join(" • ");
     const plot = card.querySelector(".plot");
     plot.textContent = movie.plot;
     plot.title = movie.plot || "";
@@ -1196,6 +1222,7 @@ function renderPickedDetails(movie) {
       <div class="picked-expanded-body">
         <div class="card-topline">
           <span class="year">${escapeHtml(movie.year || "год ?")}</span>
+          ${movie.runtime ? `<span class="runtime">${escapeHtml(movie.runtime)}</span>` : ""}
           <span class="rating">${escapeHtml(movie.rating ? `IMDb ${movie.rating}` : "IMDb —")}</span>
         </div>
         <h3>${escapeHtml(movie.title)}</h3>
@@ -1243,8 +1270,71 @@ function getDisplayMovies() {
 }
 
 function getRandomMoviePool() {
-  const movies = getVisibleMovies();
-  return elements.includeWatchedRandom.checked ? movies : movies.filter((movie) => !movie.watched);
+  let movies = getVisibleMovies();
+  if (!elements.includeWatchedRandom.checked) {
+    movies = movies.filter((movie) => !movie.watched);
+  }
+  if (elements.durationFilterEnabled.checked) {
+    const range = getSelectedDurationRange();
+    movies = movies.filter((movie) => matchesDurationRange(movie.runtime, range));
+  }
+  return movies;
+}
+
+function getRandomEmptyMessage() {
+  if (elements.durationFilterEnabled.checked) {
+    return "Под выбранные настройки не нашлось фильмов.";
+  }
+  return elements.includeWatchedRandom.checked
+    ? "В текущем разделе нет фильмов."
+    : "Нет непросмотренных фильмов.";
+}
+
+function syncRandomDurationControls() {
+  const enabled = elements.durationFilterEnabled.checked;
+  elements.durationRangeGroup.classList.toggle("is-disabled", !enabled);
+  elements.durationRangeInputs.forEach((input) => {
+    input.disabled = !enabled;
+  });
+}
+
+function getSelectedDurationRange() {
+  return [...elements.durationRangeInputs].find((input) => input.checked)?.value || "standard";
+}
+
+function matchesDurationRange(runtime, range) {
+  const minutes = parseRuntimeMinutes(runtime);
+  if (!minutes) {
+    return false;
+  }
+  if (range === "short") {
+    return minutes <= 60;
+  }
+  if (range === "long") {
+    return minutes > 130;
+  }
+  return minutes >= 60 && minutes <= 130;
+}
+
+function parseRuntimeMinutes(runtime) {
+  const text = String(runtime || "").trim().toLowerCase();
+  if (!text) {
+    return null;
+  }
+
+  const iso = text.match(/pt(?:(\d+)h)?(?:(\d+)m)?/i);
+  if (iso?.[1] || iso?.[2]) {
+    return Number(iso[1] || 0) * 60 + Number(iso[2] || 0);
+  }
+
+  const hours = text.match(/(\d+)\s*(?:h|hr|hrs|hour|hours|ч|час|часа|часов)/i);
+  const minutes = text.match(/(\d+)\s*(?:m|min|mins|minute|minutes|м|мин|минута|минуты|минут)/i);
+  if (hours || minutes) {
+    return Number(hours?.[1] || 0) * 60 + Number(minutes?.[1] || 0);
+  }
+
+  const plainMinutes = text.match(/\b(\d{1,3})\b/);
+  return plainMinutes ? Number(plainMinutes[1]) : null;
 }
 
 function getSelectedCollection() {

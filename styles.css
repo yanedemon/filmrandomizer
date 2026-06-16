@@ -355,6 +355,12 @@ input:focus {
   border-radius: 8px;
 }
 
+.random-left {
+  display: grid;
+  gap: 10px;
+  align-self: start;
+}
+
 .random-controls {
   display: flex;
   flex-wrap: wrap;
@@ -362,7 +368,25 @@ input:focus {
   align-items: center;
 }
 
-.random-watched-toggle {
+.random-settings-panel {
+  display: grid;
+  gap: 10px;
+  min-width: min(100%, 360px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  padding: 10px 12px;
+}
+
+.random-setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.random-watched-toggle,
+.random-duration-toggle {
   display: inline-flex;
   gap: 7px;
   align-items: center;
@@ -371,12 +395,62 @@ input:focus {
   font-weight: 800;
 }
 
-.random-watched-toggle input {
+.random-watched-toggle input,
+.random-duration-toggle input {
   flex: 0 0 18px;
   width: 18px;
   height: 18px;
   min-height: 18px;
   accent-color: var(--teal);
+}
+
+.duration-range {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 4px;
+}
+
+.duration-range.is-disabled {
+  opacity: 0.58;
+}
+
+.duration-option {
+  position: relative;
+  min-width: 0;
+}
+
+.duration-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.duration-option span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 850;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.duration-option input:checked + span {
+  background: var(--teal);
+  color: white;
+}
+
+.duration-option input:disabled + span {
+  cursor: not-allowed;
 }
 
 .picked-details {
@@ -798,6 +872,7 @@ h2 {
 }
 
 .year,
+.runtime,
 .rating {
   min-height: 24px;
   max-width: 100%;
@@ -810,6 +885,11 @@ h2 {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.runtime {
+  background: rgba(104, 112, 118, 0.12);
+  color: var(--muted);
 }
 
 .rating {
@@ -1503,13 +1583,65 @@ button,
   align-items: start;
 }
 
+.random-settings-toggle.is-open {
+  border-color: color-mix(in srgb, var(--teal) 48%, var(--line));
+  color: var(--teal-strong);
+  background:
+    linear-gradient(135deg, rgba(12, 156, 145, 0.14), rgba(12, 156, 145, 0.04)),
+    var(--surface-strong);
+}
+
+.random-settings-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent),
+    var(--soft-panel-bg);
+  box-shadow: 0 10px 28px rgba(31, 41, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.random-settings-panel:not([hidden]) {
+  animation: softRise 220ms var(--ease-out);
+}
+
+.duration-range {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent),
+    color-mix(in srgb, var(--surface-strong) 82%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition: opacity 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+
+.duration-range:not(.is-disabled) {
+  border-color: color-mix(in srgb, var(--teal) 28%, var(--line));
+}
+
+.duration-option span {
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out), box-shadow 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+.duration-option input:not(:disabled) + span:hover {
+  background: color-mix(in srgb, var(--teal) 10%, transparent);
+  color: var(--teal-strong);
+}
+
+.duration-option input:not(:disabled):checked + span {
+  background: linear-gradient(135deg, var(--teal), color-mix(in srgb, var(--teal) 76%, #2dd4bf));
+  box-shadow: 0 8px 18px rgba(12, 156, 145, 0.2);
+}
+
+.duration-option input:not(:disabled):active + span {
+  transform: scale(0.98);
+}
+
 .random-watched-toggle,
+.random-duration-toggle,
 .watched-toggle,
 .movie-check {
   transition: color 160ms var(--ease-out), transform 160ms var(--ease-out);
 }
 
 .random-watched-toggle:hover,
+.random-duration-toggle:hover,
 .watched-toggle:hover,
 .movie-check:hover {
   color: var(--teal-strong);
@@ -1595,6 +1727,7 @@ button,
 
 .collection-tab strong,
 .year,
+.runtime,
 .rating {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
 }
@@ -1689,6 +1822,11 @@ button,
 
 .year {
   background: color-mix(in srgb, var(--teal) 12%, var(--surface-strong));
+}
+
+.runtime {
+  background: color-mix(in srgb, var(--muted) 14%, var(--surface-strong));
+  color: color-mix(in srgb, var(--muted) 82%, var(--ink));
 }
 
 .rating {
