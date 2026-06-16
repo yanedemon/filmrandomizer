@@ -310,12 +310,15 @@ input:focus {
 .candidate-option {
   display: grid;
   gap: 4px;
+  align-content: center;
   width: 100%;
+  min-height: 48px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-strong);
   color: var(--ink);
-  padding: 10px 12px;
+  padding: 11px 14px;
+  line-height: 1.28;
   text-align: left;
 }
 
@@ -325,14 +328,21 @@ input:focus {
 }
 
 .candidate-main {
+  display: block;
+  min-width: 0;
   font-weight: 850;
   overflow-wrap: anywhere;
 }
 
 .candidate-details {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
   font-size: 0.84rem;
   line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .action-strip {
@@ -1468,6 +1478,19 @@ button,
 .candidate-option,
 .import-row {
   box-shadow: 0 6px 18px rgba(31, 41, 55, 0.06);
+}
+
+.search-results .candidate-option {
+  overflow: visible;
+  color: var(--ink);
+}
+
+.search-results .candidate-main {
+  color: var(--ink);
+}
+
+.search-results .candidate-details:empty {
+  display: none;
 }
 
 .candidate-option:hover,
