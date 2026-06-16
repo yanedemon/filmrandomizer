@@ -193,9 +193,7 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         parsed = urlparse(self.path)
-        if parsed.path == "/api/movies/watched":
-            self.handle_delete_watched()
-        elif parsed.path.startswith("/api/movies/"):
+        if parsed.path.startswith("/api/movies/"):
             self.handle_delete_movie(parsed.path)
         elif parsed.path.startswith("/api/collections/"):
             self.handle_delete_collection(parsed.path)
@@ -375,7 +373,10 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(201, {"movie": row_to_movie(row)})
 
     def handle_update_movie(self, path):
-        movie_id = path.rsplit("/", 1)[-1]
+        movie_id = parse_path_id(path)
+        if movie_id is None:
+            self.send_json(*json_error("Фильм не найден.", 404))
+            return
         data = self.read_json()
         with connect_db() as db:
             user_id = self.require_user(db)
@@ -396,7 +397,10 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(200, {"movie": row_to_movie(row)})
 
     def handle_delete_movie(self, path):
-        movie_id = path.rsplit("/", 1)[-1]
+        movie_id = parse_path_id(path)
+        if movie_id is None:
+            self.send_json(*json_error("Фильм не найден.", 404))
+            return
         with connect_db() as db:
             user_id = self.require_user(db)
             if not user_id:
@@ -404,15 +408,6 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             db.execute("DELETE FROM movies WHERE id = ? AND user_id = ?", (movie_id, user_id))
         self.send_json(200, {"ok": True})
-
-    def handle_delete_watched(self):
-        with connect_db() as db:
-            user_id = self.require_user(db)
-            if not user_id:
-                self.send_json(*json_error("Нужно войти.", 401))
-                return
-            cursor = db.execute("DELETE FROM movies WHERE user_id = ? AND watched = 1", (user_id,))
-        self.send_json(200, {"deleted": cursor.rowcount})
 
     def handle_create_collection(self):
         data = self.read_json()
@@ -427,9 +422,10 @@ class Handler(SimpleHTTPRequestHandler):
             if not user_id:
                 self.send_json(*json_error("Нужно войти.", 401))
                 return
+            timestamp = now_ts()
             cursor = db.execute(
                 "INSERT INTO collections (user_id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                (user_id, name, now_ts(), now_ts()),
+                (user_id, name, timestamp, timestamp),
             )
             collection_id = cursor.lastrowid
             replace_collection_movies(db, user_id, collection_id, movie_ids)
@@ -438,7 +434,10 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(201, {"collection": row_to_collection(row, ids)})
 
     def handle_update_collection(self, path):
-        collection_id = path.rsplit("/", 1)[-1]
+        collection_id = parse_path_id(path)
+        if collection_id is None:
+            self.send_json(*json_error("Коллекция не найдена.", 404))
+            return
         data = self.read_json()
         name = str(data.get("name", "")).strip()
         movie_ids = safe_ids(data.get("movieIds", []))
@@ -467,7 +466,10 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_json(200, {"collection": row_to_collection(row, ids)})
 
     def handle_delete_collection(self, path):
-        collection_id = path.rsplit("/", 1)[-1]
+        collection_id = parse_path_id(path)
+        if collection_id is None:
+            self.send_json(*json_error("Коллекция не найдена.", 404))
+            return
         with connect_db() as db:
             user_id = self.require_user(db)
             if not user_id:
@@ -478,6 +480,13 @@ class Handler(SimpleHTTPRequestHandler):
                 (collection_id, user_id),
             )
         self.send_json(200, {"ok": True})
+
+
+def parse_path_id(path):
+    try:
+        return int(path.rsplit("/", 1)[-1])
+    except (TypeError, ValueError):
+        return None
 
 
 def safe_ids(values):

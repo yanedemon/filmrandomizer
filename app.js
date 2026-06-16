@@ -1,4 +1,3 @@
-const THEME_STORAGE = "film-randomizer.theme";
 const USER_STORAGE = "film-randomizer.user";
 const LEGACY_MOVIES_STORAGE = "film-randomizer.movies";
 const WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql";
@@ -6,6 +5,12 @@ const WIKIPEDIA_SUMMARY_URL = "https://ru.wikipedia.org/api/rest_v1/page/summary
 const CINEMETA_SEARCH_URL = "https://v3-cinemeta.strem.io/catalog/movie/top/search=";
 const CINEMETA_META_URL = "https://v3-cinemeta.strem.io/meta/movie/";
 const PAGE_SIZE = 15;
+const GLITCH_CHARS = "&^%$#@01";
+const DURATION_RANGES = {
+  short: { max: 60 },
+  standard: { min: 60, max: 130 },
+  long: { min: 131 },
+};
 const PLACEHOLDER_POSTER =
   "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 180'%3E%3Crect width='120' height='180' fill='%23d8d1c6'/%3E%3Cpath d='M28 43h64v94H28z' fill='none' stroke='%23687076' stroke-width='6'/%3E%3Cpath d='M43 63h34M43 83h34M43 103h21' stroke='%23687076' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
 
@@ -40,8 +45,6 @@ const elements = {
   currentUser: document.querySelector("#currentUser"),
   logoutButton: document.querySelector("#logoutButton"),
   movieImportFile: document.querySelector("#movieImportFile"),
-  themeToggle: document.querySelector("#themeToggle"),
-  themeLabel: document.querySelector("#themeLabel"),
   pickMovie: document.querySelector("#pickMovie"),
   randomSettingsToggle: document.querySelector("#randomSettingsToggle"),
   randomSettings: document.querySelector("#randomSettings"),
@@ -56,7 +59,6 @@ const elements = {
   watchedCount: document.querySelector("#watchedCount"),
   unwatchedCount: document.querySelector("#unwatchedCount"),
   inCollectionsCount: document.querySelector("#inCollectionsCount"),
-  showAllMovies: document.querySelector("#showAllMovies"),
   createCollection: document.querySelector("#createCollection"),
   editSelectedCollection: document.querySelector("#editSelectedCollection"),
   collectionList: document.querySelector("#collectionList"),
@@ -87,14 +89,7 @@ const elements = {
   template: document.querySelector("#movieCardTemplate"),
 };
 
-applyTheme(getPreferredTheme());
-syncRandomDurationControls();
-renderShell();
-render();
-
-if (state.user) {
-  loadLibrary();
-}
+initApp();
 
 elements.authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -124,21 +119,7 @@ elements.authForm.addEventListener("submit", async (event) => {
   }
 });
 
-elements.logoutButton.addEventListener("click", () => {
-  state.user = null;
-  state.movies = [];
-  state.collections = [];
-  state.selectedCollectionId = "all";
-  state.visibleMovieLimit = PAGE_SIZE;
-  state.hideWatched = false;
-  localStorage.removeItem(USER_STORAGE);
-  hideSearchResults();
-  resetPickedMovie();
-  closeCollectionModal();
-  closeImportModal();
-  renderShell();
-  render();
-});
+elements.logoutButton.addEventListener("click", logoutUser);
 
 elements.form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -210,18 +191,7 @@ elements.movieImportFile.addEventListener("change", async () => {
   }
 });
 
-elements.themeToggle.addEventListener("change", () => {
-  const theme = elements.themeToggle.checked ? "dark" : "light";
-  localStorage.setItem(THEME_STORAGE, theme);
-  applyTheme(theme);
-});
-
-elements.randomSettingsToggle.addEventListener("click", () => {
-  const isOpen = elements.randomSettings.hidden;
-  elements.randomSettings.hidden = !isOpen;
-  elements.randomSettingsToggle.setAttribute("aria-expanded", String(isOpen));
-  elements.randomSettingsToggle.classList.toggle("is-open", isOpen);
-});
+elements.randomSettingsToggle.addEventListener("click", toggleRandomSettings);
 
 elements.pickMovie.addEventListener("click", async () => {
   const pool = getRandomMoviePool();
@@ -250,10 +220,7 @@ elements.includeWatchedRandom.addEventListener("change", () => {
   render();
 });
 
-elements.durationFilterEnabled.addEventListener("change", () => {
-  syncRandomDurationControls();
-  render();
-});
+elements.durationFilterEnabled.addEventListener("change", handleDurationFilterToggle);
 
 elements.durationRangeInputs.forEach((input) => {
   input.addEventListener("change", () => {
@@ -261,19 +228,7 @@ elements.durationRangeInputs.forEach((input) => {
   });
 });
 
-elements.clearWatched.addEventListener("click", async () => {
-  state.hideWatched = !state.hideWatched;
-  state.visibleMovieLimit = PAGE_SIZE;
-  render();
-  showMessage(state.hideWatched ? "Просмотренные скрыты из выдачи." : "Просмотренные снова показаны.");
-});
-
-elements.showAllMovies.addEventListener("click", () => {
-  state.selectedCollectionId = "all";
-  state.visibleMovieLimit = PAGE_SIZE;
-  state.hideWatched = false;
-  render();
-});
+elements.clearWatched.addEventListener("click", toggleWatchedVisibility);
 
 elements.createCollection.addEventListener("click", () => {
   openCollectionModal("create");
@@ -291,10 +246,7 @@ elements.collectionList.addEventListener("click", (event) => {
   if (!button) {
     return;
   }
-  state.selectedCollectionId = button.dataset.id === "all" ? "all" : Number(button.dataset.id);
-  state.visibleMovieLimit = PAGE_SIZE;
-  state.hideWatched = false;
-  render();
+  selectCollection(button.dataset.id === "all" ? "all" : Number(button.dataset.id));
 });
 
 elements.closeCollectionModal.addEventListener("click", closeCollectionModal);
@@ -315,12 +267,7 @@ elements.collectionMoviePicker.addEventListener("change", (event) => {
     return;
   }
 
-  const movieId = Number(event.target.value);
-  if (event.target.checked) {
-    state.collectionDraftMovieIds.add(movieId);
-  } else {
-    state.collectionDraftMovieIds.delete(movieId);
-  }
+  toggleCollectionDraftMovie(Number(event.target.value), event.target.checked);
 });
 
 elements.collectionForm.addEventListener("submit", async (event) => {
@@ -442,6 +389,75 @@ elements.plotModal.addEventListener("click", (event) => {
     closePlotModal();
   }
 });
+
+function initApp() {
+  document.documentElement.dataset.theme = "dark";
+  syncRandomDurationControls();
+  renderShell();
+  render();
+  runTerminalReveals();
+
+  if (state.user) {
+    loadLibrary().catch((error) => {
+      showMessage(error.message, true);
+    });
+  }
+}
+
+function logoutUser() {
+  state.user = null;
+  state.movies = [];
+  state.collections = [];
+  selectCollection("all", { shouldRender: false });
+  state.visibleMovieLimit = PAGE_SIZE;
+  state.hideWatched = false;
+  localStorage.removeItem(USER_STORAGE);
+  hideSearchResults();
+  resetPickedMovie();
+  closeCollectionModal();
+  closeImportModal();
+  renderShell();
+  render();
+}
+
+function toggleRandomSettings() {
+  const isOpen = elements.randomSettings.hidden;
+  elements.randomSettings.hidden = !isOpen;
+  elements.randomSettingsToggle.setAttribute("aria-expanded", String(isOpen));
+  elements.randomSettingsToggle.classList.toggle("is-open", isOpen);
+  elements.randomSettingsToggle.dataset.state = isOpen ? "open" : "closed";
+  elements.randomSettings.dataset.state = isOpen ? "open" : "closed";
+  elements.appShell.dataset.randomSettings = isOpen ? "open" : "closed";
+}
+
+function handleDurationFilterToggle() {
+  syncRandomDurationControls();
+  render();
+}
+
+function toggleWatchedVisibility() {
+  state.hideWatched = !state.hideWatched;
+  state.visibleMovieLimit = PAGE_SIZE;
+  render();
+  showMessage(state.hideWatched ? "Просмотренные скрыты из выдачи." : "Просмотренные снова показаны.");
+}
+
+function selectCollection(collectionId, { shouldRender = true } = {}) {
+  state.selectedCollectionId = collectionId;
+  state.visibleMovieLimit = PAGE_SIZE;
+  state.hideWatched = false;
+  if (shouldRender) {
+    render();
+  }
+}
+
+function toggleCollectionDraftMovie(movieId, isSelected) {
+  if (isSelected) {
+    state.collectionDraftMovieIds.add(movieId);
+  } else {
+    state.collectionDraftMovieIds.delete(movieId);
+  }
+}
 
 async function apiFetch(path, options = {}) {
   const headers = {
@@ -937,6 +953,7 @@ async function confirmImportRows() {
 
 function renderShell() {
   const isLoggedIn = Boolean(state.user);
+  elements.appShell.dataset.state = isLoggedIn ? "archive" : "locked";
   elements.appShell.classList.toggle("is-locked", !isLoggedIn);
   elements.authSection.hidden = isLoggedIn;
   elements.appContent.hidden = !isLoggedIn;
@@ -1293,6 +1310,7 @@ function getRandomEmptyMessage() {
 function syncRandomDurationControls() {
   const enabled = elements.durationFilterEnabled.checked;
   elements.durationRangeGroup.classList.toggle("is-disabled", !enabled);
+  elements.durationRangeGroup.dataset.state = enabled ? "active" : "disabled";
   elements.durationRangeInputs.forEach((input) => {
     input.disabled = !enabled;
   });
@@ -1307,13 +1325,8 @@ function matchesDurationRange(runtime, range) {
   if (!minutes) {
     return false;
   }
-  if (range === "short") {
-    return minutes <= 60;
-  }
-  if (range === "long") {
-    return minutes > 130;
-  }
-  return minutes >= 60 && minutes <= 130;
+  const bounds = DURATION_RANGES[range] || DURATION_RANGES.standard;
+  return (!bounds.min || minutes >= bounds.min) && (!bounds.max || minutes <= bounds.max);
 }
 
 function parseRuntimeMinutes(runtime) {
@@ -1375,20 +1388,50 @@ function saveUser() {
   localStorage.setItem(USER_STORAGE, JSON.stringify(state.user));
 }
 
-function getPreferredTheme() {
-  const saved = localStorage.getItem(THEME_STORAGE);
-  if (saved === "dark" || saved === "light") {
-    return saved;
-  }
-
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+function runTerminalReveals(root = document) {
+  root.querySelectorAll("[data-terminal-reveal]").forEach((element) => {
+    revealTerminalText(element);
+  });
 }
 
-function applyTheme(theme) {
-  const normalizedTheme = theme === "dark" ? "dark" : "light";
-  document.documentElement.dataset.theme = normalizedTheme;
-  elements.themeToggle.checked = normalizedTheme === "dark";
-  elements.themeLabel.textContent = normalizedTheme === "dark" ? "Тёмная тема" : "Светлая тема";
+function revealTerminalText(element) {
+  if (element.dataset.revealed === "true") {
+    return;
+  }
+
+  const text = element.textContent;
+  element.dataset.revealed = "true";
+  element.textContent = "";
+
+  const spans = [...text].map((char) => {
+    const span = document.createElement("span");
+    span.dataset.final = char;
+    span.textContent = char === " " ? "\u00a0" : char;
+    element.append(span);
+    return span;
+  });
+
+  let frame = 0;
+  const settleFrame = 8;
+  const interval = window.setInterval(() => {
+    spans.forEach((span, index) => {
+      const finalChar = span.dataset.final;
+      if (finalChar === " " || index < frame - 3) {
+        span.textContent = finalChar === " " ? "\u00a0" : finalChar;
+        return;
+      }
+      span.textContent = GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
+    });
+
+    frame += 1;
+    if (frame > spans.length + settleFrame) {
+      window.clearInterval(interval);
+      spans.forEach((span) => {
+        const finalChar = span.dataset.final;
+        span.textContent = finalChar === " " ? "\u00a0" : finalChar;
+      });
+    }
+  }, 34);
 }
 
 function uniqueCandidates(candidates) {

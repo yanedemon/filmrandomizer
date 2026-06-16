@@ -5,24 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Film Randomizer</title>
     <script>
-      try {
-        const savedTheme = localStorage.getItem("film-randomizer.theme");
-        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.dataset.theme = savedTheme || (prefersDark ? "dark" : "light");
-      } catch {
-        document.documentElement.dataset.theme = "light";
-      }
+      document.documentElement.dataset.theme = "dark";
     </script>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="app-shell" id="appShell">
+    <svg class="xeno-svg-filters" aria-hidden="true" focusable="false">
+      <filter id="phosphor-bloom" x="-35%" y="-35%" width="170%" height="170%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="1.35" result="softGlow"/>
+        <feColorMatrix
+          in="softGlow"
+          result="acidGlow"
+          type="matrix"
+          values="0 0 0 0 0
+                  0 1.35 0 0 0.55
+                  0 0.55 0 0 0.22
+                  0 0 0 0.86 0"
+        />
+        <feMerge>
+          <feMergeNode in="acidGlow"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+      <filter id="xeno-noise">
+        <feTurbulence type="fractalNoise" baseFrequency="0.86" numOctaves="3" seed="11"/>
+        <feColorMatrix type="saturate" values="0"/>
+        <feComponentTransfer>
+          <feFuncA type="table" tableValues="0 0.16"/>
+        </feComponentTransfer>
+      </filter>
+    </svg>
+
+    <main class="app-shell" id="appShell" data-state="boot" data-random-settings="closed">
       <section class="toolbar" aria-label="Панель приложения">
         <div class="brand">
-          <span class="brand-mark" aria-hidden="true">FR</span>
+          <span class="brand-mark" aria-hidden="true">XO</span>
           <div>
-            <h1>Film Randomizer</h1>
-            <p>Коллекция фильмов для вечера</p>
+            <h1 class="terminal-text" data-terminal-reveal>XENO-FR // ARCHIVE</h1>
+            <p class="terminal-text" data-terminal-reveal>закрытый терминал выбора фильмов</p>
           </div>
         </div>
 
@@ -72,9 +92,9 @@
           <div class="random-left">
             <div class="random-controls">
               <button class="pick-button" id="pickMovie" type="button">Выбрать фильм</button>
-              <button class="ghost-button random-settings-toggle" id="randomSettingsToggle" type="button" aria-expanded="false" aria-controls="randomSettings">Настройки выбора</button>
+              <button class="ghost-button random-settings-toggle" id="randomSettingsToggle" type="button" aria-expanded="false" aria-controls="randomSettings" data-state="closed">Настройки выбора</button>
             </div>
-            <div class="random-settings-panel" id="randomSettings" hidden>
+            <div class="random-settings-panel" id="randomSettings" data-state="closed" hidden>
               <div class="random-setting-row">
                 <label class="random-watched-toggle">
                   <input id="includeWatchedRandom" type="checkbox">
@@ -86,7 +106,7 @@
                   <input id="durationFilterEnabled" type="checkbox">
                   <span>Длительность</span>
                 </label>
-                <div class="duration-range" id="durationRangeGroup" aria-label="Диапазон длительности">
+                <div class="duration-range" id="durationRangeGroup" aria-label="Диапазон длительности" data-state="disabled">
                   <label class="duration-option">
                     <input class="duration-range-input" type="radio" name="durationRange" value="short" disabled>
                     <span>Короткий</span>
@@ -112,13 +132,6 @@
         <section class="settings" aria-label="Настройки">
           <label class="ghost-button file-button" for="movieImportFile">Импорт TXT</label>
           <input id="movieImportFile" type="file" accept=".txt,text/plain" hidden>
-          <label class="theme-toggle" for="themeToggle">
-            <input id="themeToggle" type="checkbox">
-            <span class="theme-track" aria-hidden="true">
-              <span class="theme-thumb"></span>
-            </span>
-            <span class="theme-label" id="themeLabel">Светлая тема</span>
-          </label>
         </section>
 
         <section class="status-row" aria-label="Статистика">
@@ -144,7 +157,6 @@
           <div class="section-heading">
             <h2 id="collectionsTitle">Коллекции</h2>
             <div class="section-actions">
-              <button class="ghost-button" id="showAllMovies" type="button">Все фильмы</button>
               <button class="ghost-button" id="editSelectedCollection" type="button" hidden>Настроить</button>
               <button class="primary-button" id="createCollection" type="button">Создать коллекцию</button>
             </div>
