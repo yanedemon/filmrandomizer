@@ -91,7 +91,8 @@
         <section class="action-strip" aria-label="Выбор фильма">
           <div class="random-left">
             <div class="random-controls">
-              <button class="pick-button" id="pickMovie" type="button">Выбрать фильм</button>
+              <button class="pick-button" id="pickMovie" type="button">Выбрать из добавленных</button>
+              <button class="pick-button secondary-pick-button" id="pickExternalMovie" type="button">Случайный фильм</button>
               <button class="ghost-button random-settings-toggle" id="randomSettingsToggle" type="button" aria-expanded="false" aria-controls="randomSettings" data-state="closed">Настройки выбора</button>
             </div>
             <div class="random-settings-panel" id="randomSettings" data-state="closed" hidden>
@@ -118,6 +119,31 @@
                   <label class="duration-option">
                     <input class="duration-range-input" type="radio" name="durationRange" value="long" disabled>
                     <span>Длинный</span>
+                  </label>
+                </div>
+              </div>
+              <div class="random-setting-row">
+                <button class="ghost-button compact-action-button" id="openRandomGenreModal" type="button">Настроить жанры</button>
+                <span class="random-setting-summary" id="randomGenreSummary">Все жанры</span>
+              </div>
+              <div class="random-setting-row">
+                <span class="random-setting-label">Рейтинг IMDb</span>
+                <div class="rating-range" id="ratingRangeGroup" aria-label="Диапазон рейтинга IMDb">
+                  <label class="rating-option">
+                    <input class="rating-range-input" type="radio" name="ratingRange" value="any" checked>
+                    <span>Любой</span>
+                  </label>
+                  <label class="rating-option">
+                    <input class="rating-range-input" type="radio" name="ratingRange" value="low">
+                    <span>Низкий</span>
+                  </label>
+                  <label class="rating-option">
+                    <input class="rating-range-input" type="radio" name="ratingRange" value="medium">
+                    <span>Средний</span>
+                  </label>
+                  <label class="rating-option">
+                    <input class="rating-range-input" type="radio" name="ratingRange" value="high">
+                    <span>Высокий</span>
                   </label>
                 </div>
               </div>
@@ -170,6 +196,40 @@
             <h2 id="cardsTitle">Все фильмы</h2>
             <button class="ghost-button danger" id="clearWatched" type="button">Убрать просмотренные</button>
           </div>
+          <div class="library-filters" aria-label="Фильтры библиотеки">
+            <label class="field library-search-field">
+              <span>Поиск</span>
+              <input id="librarySearch" type="search" placeholder="Название, жанр, режиссёр">
+            </label>
+            <label class="field">
+              <span>Год</span>
+              <select id="yearFilter">
+                <option value="">Все</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>IMDb</span>
+              <select id="ratingFilter">
+                <option value="">Любой</option>
+                <option value="low">до 5.5</option>
+                <option value="medium">5.6-7.5</option>
+                <option value="high">выше 7.6</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Жанр</span>
+              <select id="genreFilter">
+                <option value="">Все</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Режиссёр</span>
+              <select id="directorFilter">
+                <option value="">Все</option>
+              </select>
+            </label>
+            <button class="ghost-button compact-action-button" id="resetLibraryFilters" type="button">Сбросить</button>
+          </div>
           <div class="message" id="message" role="status" aria-live="polite"></div>
           <div class="cards-grid" id="cardsGrid"></div>
           <button class="ghost-button show-more" id="showMoreMovies" type="button" hidden>Показать ещё</button>
@@ -220,10 +280,28 @@
     <div class="modal-backdrop" id="plotModal" hidden>
       <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="plotModalTitle">
         <div class="modal-header">
-          <h3 id="plotModalTitle">Аннотация</h3>
+          <h3 id="plotModalTitle">Фильм</h3>
           <button class="icon-button" id="closePlotModal" type="button" aria-label="Закрыть">×</button>
         </div>
-        <p class="plot-modal-body" id="plotModalBody"></p>
+        <div class="plot-modal-body" id="plotModalBody"></div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="randomGenreModal" hidden>
+      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="randomGenreModalTitle">
+        <div class="modal-header">
+          <h3 id="randomGenreModalTitle">Жанры для выбора</h3>
+          <button class="icon-button" id="closeRandomGenreModal" type="button" aria-label="Закрыть">×</button>
+        </div>
+        <div class="genre-modal-toolbar">
+          <button class="ghost-button compact-action-button" id="selectAllRandomGenres" type="button">Все</button>
+          <button class="ghost-button compact-action-button" id="clearRandomGenres" type="button">Снять</button>
+        </div>
+        <div class="movie-picker modal-movie-picker" id="randomGenrePicker"></div>
+        <div class="modal-actions">
+          <button class="primary-button" id="saveRandomGenres" type="button">Готово</button>
+          <button class="ghost-button" id="cancelRandomGenres" type="button">Отмена</button>
+        </div>
       </section>
     </div>
 

@@ -11,6 +11,25 @@ const DURATION_RANGES = {
   standard: { min: 60, max: 130 },
   long: { min: 131 },
 };
+const RATING_RANGES = {
+  low: { max: 5.5 },
+  medium: { min: 5.6, max: 7.5 },
+  high: { min: 7.6, minExclusive: true },
+};
+const EXTERNAL_RANDOM_QUERIES = [
+  "movie",
+  "film",
+  "classic",
+  "action",
+  "comedy",
+  "drama",
+  "thriller",
+  "adventure",
+  "science fiction",
+  "crime",
+  "romance",
+  "horror",
+];
 const PLACEHOLDER_POSTER =
   "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 180'%3E%3Crect width='120' height='180' fill='%23d8d1c6'/%3E%3Cpath d='M28 43h64v94H28z' fill='none' stroke='%23687076' stroke-width='6'/%3E%3Cpath d='M43 63h34M43 83h34M43 103h21' stroke='%23687076' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
 
@@ -26,6 +45,15 @@ const state = {
   editingCollectionId: null,
   collectionDraftMovieIds: new Set(),
   collectionSearch: "",
+  librarySearch: "",
+  libraryFilters: {
+    year: "",
+    rating: "",
+    genre: "",
+    director: "",
+  },
+  randomGenreDraft: new Set(),
+  randomGenreFilters: new Set(),
   importRows: [],
   isLoading: false,
   isMigratingLegacy: false,
@@ -46,12 +74,16 @@ const elements = {
   logoutButton: document.querySelector("#logoutButton"),
   movieImportFile: document.querySelector("#movieImportFile"),
   pickMovie: document.querySelector("#pickMovie"),
+  pickExternalMovie: document.querySelector("#pickExternalMovie"),
   randomSettingsToggle: document.querySelector("#randomSettingsToggle"),
   randomSettings: document.querySelector("#randomSettings"),
   includeWatchedRandom: document.querySelector("#includeWatchedRandom"),
   durationFilterEnabled: document.querySelector("#durationFilterEnabled"),
   durationRangeGroup: document.querySelector("#durationRangeGroup"),
   durationRangeInputs: document.querySelectorAll(".duration-range-input"),
+  ratingRangeInputs: document.querySelectorAll(".rating-range-input"),
+  openRandomGenreModal: document.querySelector("#openRandomGenreModal"),
+  randomGenreSummary: document.querySelector("#randomGenreSummary"),
   pickedMovie: document.querySelector("#pickedMovie"),
   pickedDetails: document.querySelector("#pickedDetails"),
   searchResults: document.querySelector("#searchResults"),
@@ -74,6 +106,12 @@ const elements = {
   cardsTitle: document.querySelector("#cardsTitle"),
   cardsGrid: document.querySelector("#cardsGrid"),
   showMoreMovies: document.querySelector("#showMoreMovies"),
+  librarySearch: document.querySelector("#librarySearch"),
+  yearFilter: document.querySelector("#yearFilter"),
+  ratingFilter: document.querySelector("#ratingFilter"),
+  genreFilter: document.querySelector("#genreFilter"),
+  directorFilter: document.querySelector("#directorFilter"),
+  resetLibraryFilters: document.querySelector("#resetLibraryFilters"),
   message: document.querySelector("#message"),
   clearWatched: document.querySelector("#clearWatched"),
   importModal: document.querySelector("#importModal"),
@@ -86,6 +124,13 @@ const elements = {
   closePlotModal: document.querySelector("#closePlotModal"),
   plotModalTitle: document.querySelector("#plotModalTitle"),
   plotModalBody: document.querySelector("#plotModalBody"),
+  randomGenreModal: document.querySelector("#randomGenreModal"),
+  closeRandomGenreModal: document.querySelector("#closeRandomGenreModal"),
+  cancelRandomGenres: document.querySelector("#cancelRandomGenres"),
+  saveRandomGenres: document.querySelector("#saveRandomGenres"),
+  selectAllRandomGenres: document.querySelector("#selectAllRandomGenres"),
+  clearRandomGenres: document.querySelector("#clearRandomGenres"),
+  randomGenrePicker: document.querySelector("#randomGenrePicker"),
   template: document.querySelector("#movieCardTemplate"),
 };
 
@@ -194,7 +239,7 @@ elements.movieImportFile.addEventListener("change", async () => {
 elements.randomSettingsToggle.addEventListener("click", toggleRandomSettings);
 
 elements.pickMovie.addEventListener("click", async () => {
-  const pool = getRandomMoviePool();
+  const pool = getRandomMoviePool("library");
   if (!pool.length) {
     elements.pickedMovie.innerHTML = `<span class="muted">${getRandomEmptyMessage()}</span>`;
     elements.pickedDetails.hidden = true;
@@ -216,6 +261,8 @@ elements.pickMovie.addEventListener("click", async () => {
   renderPickedDetails(expanded);
 });
 
+elements.pickExternalMovie.addEventListener("click", pickExternalRandomMovie);
+
 elements.includeWatchedRandom.addEventListener("change", () => {
   render();
 });
@@ -227,6 +274,14 @@ elements.durationRangeInputs.forEach((input) => {
     render();
   });
 });
+
+elements.ratingRangeInputs.forEach((input) => {
+  input.addEventListener("change", () => {
+    render();
+  });
+});
+
+elements.openRandomGenreModal.addEventListener("click", openRandomGenreModal);
 
 elements.clearWatched.addEventListener("click", toggleWatchedVisibility);
 
@@ -317,6 +372,27 @@ elements.showMoreMovies.addEventListener("click", () => {
   renderCards();
 });
 
+elements.librarySearch.addEventListener("input", () => {
+  state.librarySearch = elements.librarySearch.value.trim();
+  state.visibleMovieLimit = PAGE_SIZE;
+  renderCards();
+});
+
+[
+  ["year", elements.yearFilter],
+  ["rating", elements.ratingFilter],
+  ["genre", elements.genreFilter],
+  ["director", elements.directorFilter],
+].forEach(([key, element]) => {
+  element.addEventListener("change", () => {
+    state.libraryFilters[key] = element.value;
+    state.visibleMovieLimit = PAGE_SIZE;
+    renderCards();
+  });
+});
+
+elements.resetLibraryFilters.addEventListener("click", resetLibraryFilters);
+
 elements.cardsGrid.addEventListener("change", async (event) => {
   if (!event.target.classList.contains("watched-input")) {
     return;
@@ -344,6 +420,10 @@ elements.cardsGrid.addEventListener("change", async (event) => {
 elements.cardsGrid.addEventListener("click", async (event) => {
   const removeButton = event.target.closest(".remove-button");
   if (!removeButton) {
+    const card = event.target.closest(".movie-card");
+    if (card && !isCardControlTarget(event.target)) {
+      openMovieDetailsFromCard(card);
+    }
     return;
   }
 
@@ -357,6 +437,20 @@ elements.cardsGrid.addEventListener("click", async (event) => {
   } catch (error) {
     showMessage(error.message, true);
   }
+});
+
+elements.cardsGrid.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+
+  const card = event.target.closest(".movie-card");
+  if (!card || event.target !== card) {
+    return;
+  }
+
+  event.preventDefault();
+  openMovieDetailsFromCard(card);
 });
 
 elements.importReviewList.addEventListener("change", (event) => {
@@ -387,6 +481,30 @@ elements.closePlotModal.addEventListener("click", closePlotModal);
 elements.plotModal.addEventListener("click", (event) => {
   if (event.target === elements.plotModal) {
     closePlotModal();
+  }
+});
+
+elements.closeRandomGenreModal.addEventListener("click", closeRandomGenreModal);
+elements.cancelRandomGenres.addEventListener("click", closeRandomGenreModal);
+elements.saveRandomGenres.addEventListener("click", saveRandomGenres);
+elements.selectAllRandomGenres.addEventListener("click", () => {
+  state.randomGenreDraft = new Set(getLibraryGenres());
+  renderRandomGenrePicker();
+});
+elements.clearRandomGenres.addEventListener("click", () => {
+  state.randomGenreDraft = new Set();
+  renderRandomGenrePicker();
+});
+elements.randomGenrePicker.addEventListener("change", (event) => {
+  if (!event.target.matches("input[type='checkbox']")) {
+    return;
+  }
+  toggleSetValue(state.randomGenreDraft, event.target.value, event.target.checked);
+  renderRandomGenreSummary(state.randomGenreDraft, true);
+});
+elements.randomGenreModal.addEventListener("click", (event) => {
+  if (event.target === elements.randomGenreModal) {
+    closeRandomGenreModal();
   }
 });
 
@@ -968,10 +1086,13 @@ function renderShell() {
 function render() {
   renderStats();
   renderCollections();
+  renderLibraryFilterOptions();
+  renderRandomGenreSummary();
   renderCards();
   elements.clearWatched.disabled = !getVisibleMovies().some((movie) => movie.watched);
   elements.clearWatched.textContent = state.hideWatched ? "Показать просмотренные" : "Убрать просмотренные";
-  elements.pickMovie.disabled = !getRandomMoviePool().length;
+  elements.pickMovie.disabled = !getRandomMoviePool("library").length;
+  elements.pickExternalMovie.disabled = state.isLoading;
 }
 
 function renderStats() {
@@ -1082,6 +1203,130 @@ function renderCollectionMoviePicker() {
   elements.collectionMoviePicker.append(grid);
 }
 
+function renderLibraryFilterOptions() {
+  if (!state.user) {
+    return;
+  }
+
+  const sourceMovies = getVisibleMovies();
+  elements.librarySearch.value = state.librarySearch;
+  state.libraryFilters.year = syncSelectOptions(
+    elements.yearFilter,
+    getUniqueYears(sourceMovies),
+    "Все",
+    state.libraryFilters.year,
+  );
+  elements.ratingFilter.value = state.libraryFilters.rating;
+  state.libraryFilters.genre = syncSelectOptions(
+    elements.genreFilter,
+    getUniqueGenres(sourceMovies),
+    "Все",
+    state.libraryFilters.genre,
+  );
+  state.libraryFilters.director = syncSelectOptions(
+    elements.directorFilter,
+    getUniqueDirectors(sourceMovies),
+    "Все",
+    state.libraryFilters.director,
+  );
+}
+
+function syncSelectOptions(select, values, emptyLabel, selectedValue) {
+  const currentValues = [...new Set(values.filter(Boolean))];
+  select.innerHTML = "";
+  select.append(new Option(emptyLabel, ""));
+  currentValues.forEach((value) => {
+    select.append(new Option(value, value));
+  });
+
+  const nextValue = currentValues.includes(selectedValue) ? selectedValue : "";
+  select.value = nextValue;
+  return nextValue;
+}
+
+function resetLibraryFilters() {
+  state.librarySearch = "";
+  state.libraryFilters = {
+    year: "",
+    rating: "",
+    genre: "",
+    director: "",
+  };
+  state.visibleMovieLimit = PAGE_SIZE;
+  render();
+}
+
+function openRandomGenreModal() {
+  state.randomGenreDraft = new Set(state.randomGenreFilters);
+  renderRandomGenrePicker();
+  elements.randomGenreModal.hidden = false;
+}
+
+function closeRandomGenreModal() {
+  elements.randomGenreModal.hidden = true;
+  state.randomGenreDraft = new Set(state.randomGenreFilters);
+}
+
+function saveRandomGenres() {
+  state.randomGenreFilters = new Set(state.randomGenreDraft);
+  closeRandomGenreModal();
+  render();
+}
+
+function renderRandomGenrePicker() {
+  const genres = getLibraryGenres();
+  elements.randomGenrePicker.innerHTML = "";
+
+  if (!genres.length) {
+    const empty = document.createElement("div");
+    empty.className = "picker-empty";
+    empty.textContent = "В библиотеке пока нет жанров.";
+    elements.randomGenrePicker.append(empty);
+    renderRandomGenreSummary(state.randomGenreDraft, true);
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "checkbox-grid";
+  genres.forEach((genre) => {
+    const label = document.createElement("label");
+    label.className = "movie-check";
+    label.innerHTML = `
+      <input type="checkbox" value="${escapeHtml(genre)}" ${state.randomGenreDraft.has(genre) ? "checked" : ""}>
+      <span>${escapeHtml(genre)}</span>
+    `;
+    grid.append(label);
+  });
+  elements.randomGenrePicker.append(grid);
+  renderRandomGenreSummary(state.randomGenreDraft, true);
+}
+
+function renderRandomGenreSummary(selection = state.randomGenreFilters, isDraft = false) {
+  const count = selection.size;
+  const suffix = isDraft ? " выбрано" : "";
+  elements.randomGenreSummary.textContent = count ? `${count} ${pluralizeGenre(count)}${suffix}` : "Все жанры";
+}
+
+function pluralizeGenre(count) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) {
+    return "жанр";
+  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return "жанра";
+  }
+  return "жанров";
+}
+
+function toggleSetValue(targetSet, value, isSelected) {
+  if (isSelected) {
+    targetSet.add(value);
+  } else {
+    targetSet.delete(value);
+  }
+}
+
 function renderCards() {
   const visibleMovies = getDisplayMovies();
   const selected = getSelectedCollection();
@@ -1106,6 +1351,8 @@ function renderCards() {
   pageMovies.forEach((movie) => {
     const card = elements.template.content.firstElementChild.cloneNode(true);
     card.dataset.id = movie.id;
+    card.tabIndex = 0;
+    card.setAttribute("aria-label", `Открыть карточку фильма: ${movie.title}`);
     card.classList.toggle("is-watched", movie.watched);
 
     const poster = card.querySelector(".poster");
@@ -1132,16 +1379,6 @@ function renderCards() {
     const plot = card.querySelector(".plot");
     plot.textContent = movie.plot;
     plot.title = movie.plot || "";
-    plot.tabIndex = 0;
-    plot.setAttribute("role", "button");
-    plot.setAttribute("aria-label", `Открыть аннотацию: ${movie.title}`);
-    plot.addEventListener("click", () => openPlotModal(movie));
-    plot.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        openPlotModal(movie);
-      }
-    });
     card.querySelector(".watched-input").checked = movie.watched;
 
     fragment.append(card);
@@ -1233,8 +1470,50 @@ async function getExpandedMovie(movie) {
 }
 
 function renderPickedDetails(movie) {
-  elements.pickedDetails.innerHTML = `
-    <article class="picked-expanded-card">
+  elements.pickedDetails.innerHTML = renderMovieDetailsCard(movie);
+}
+
+function resetPickedMovie() {
+  elements.pickedMovie.innerHTML = "<span class=\"muted\">Непросмотренные фильмы ждут своего часа.</span>";
+  elements.pickedDetails.hidden = true;
+  elements.pickedDetails.innerHTML = "";
+}
+
+function openMovieDetailsFromCard(card) {
+  const movie = state.movies.find((item) => item.id === Number(card.dataset.id));
+  if (movie) {
+    openMovieDetailsModal(movie);
+  }
+}
+
+async function openMovieDetailsModal(movie) {
+  const movieKey = String(movie.id || movie.imdbId || movie.title);
+  elements.plotModalTitle.textContent = movie.title || "Фильм";
+  elements.plotModalBody.dataset.movieKey = movieKey;
+  elements.plotModalBody.innerHTML = renderMovieDetailsCard(movie, {
+    className: "picked-expanded-card movie-detail-card",
+    isLoading: Boolean(movie.imdbId),
+  });
+  elements.plotModal.hidden = false;
+
+  const expanded = await getExpandedMovie(movie);
+  if (!elements.plotModal.hidden && elements.plotModalBody.dataset.movieKey === movieKey) {
+    elements.plotModalTitle.textContent = expanded.title || movie.title || "Фильм";
+    elements.plotModalBody.innerHTML = renderMovieDetailsCard(expanded, {
+      className: "picked-expanded-card movie-detail-card",
+    });
+  }
+}
+
+function closePlotModal() {
+  elements.plotModal.hidden = true;
+  elements.plotModalBody.innerHTML = "";
+  delete elements.plotModalBody.dataset.movieKey;
+}
+
+function renderMovieDetailsCard(movie, { className = "picked-expanded-card", isLoading = false } = {}) {
+  return `
+    <article class="${className}">
       <img class="picked-expanded-poster" src="${escapeHtml(movie.poster || PLACEHOLDER_POSTER)}" alt="Постер: ${escapeHtml(movie.title)}">
       <div class="picked-expanded-body">
         <div class="card-topline">
@@ -1245,31 +1524,22 @@ function renderPickedDetails(movie) {
         <h3>${escapeHtml(movie.title)}</h3>
         <dl class="detail-list">
           <div><dt>Оригинал</dt><dd>${escapeHtml(movie.originalTitle || "не найдено")}</dd></div>
+          <div><dt>Год</dt><dd>${escapeHtml(movie.year || "не найден")}</dd></div>
           <div><dt>Длительность</dt><dd>${escapeHtml(movie.runtime || "не найдена")}</dd></div>
+          <div><dt>IMDb</dt><dd>${escapeHtml(movie.rating ? `${movie.rating}/10` : "не найден")}</dd></div>
           <div><dt>Жанры</dt><dd>${escapeHtml(movie.genre || "не найдены")}</dd></div>
           <div><dt>Режиссёр</dt><dd>${escapeHtml(movie.director || "не найден")}</dd></div>
-          <div><dt>Актёры</dt><dd>${escapeHtml(movie.cast || "не найдены")}</dd></div>
+          <div><dt>В главных ролях</dt><dd>${escapeHtml(movie.cast || "не найдены")}</dd></div>
         </dl>
         <p>${escapeHtml(movie.plot || "Описание не найдено.")}</p>
+        ${isLoading ? "<div class=\"picked-details-loading\">Уточняю данные...</div>" : ""}
       </div>
     </article>
   `;
 }
 
-function resetPickedMovie() {
-  elements.pickedMovie.innerHTML = "<span class=\"muted\">Непросмотренные фильмы ждут своего часа.</span>";
-  elements.pickedDetails.hidden = true;
-  elements.pickedDetails.innerHTML = "";
-}
-
-function openPlotModal(movie) {
-  elements.plotModalTitle.textContent = movie.title || "Аннотация";
-  elements.plotModalBody.textContent = movie.plot || "Описание не найдено.";
-  elements.plotModal.hidden = false;
-}
-
-function closePlotModal() {
-  elements.plotModal.hidden = true;
+function isCardControlTarget(target) {
+  return Boolean(target.closest("button, input, label, select, textarea, a, .card-actions"));
 }
 
 function getVisibleMovies() {
@@ -1282,24 +1552,174 @@ function getVisibleMovies() {
 }
 
 function getDisplayMovies() {
-  const movies = getVisibleMovies();
-  return state.hideWatched ? movies.filter((movie) => !movie.watched) : movies;
-}
-
-function getRandomMoviePool() {
   let movies = getVisibleMovies();
-  if (!elements.includeWatchedRandom.checked) {
+  if (state.hideWatched) {
     movies = movies.filter((movie) => !movie.watched);
   }
-  if (elements.durationFilterEnabled.checked) {
-    const range = getSelectedDurationRange();
-    movies = movies.filter((movie) => matchesDurationRange(movie.runtime, range));
+  return movies.filter(matchesLibraryFilters);
+}
+
+function matchesLibraryFilters(movie) {
+  const search = normalizeSearchText(state.librarySearch);
+  if (search) {
+    const searchableFields = [
+      movie.title,
+      movie.originalTitle,
+      movie.year,
+      movie.rating,
+      movie.runtime,
+      movie.genre,
+      movie.director,
+      movie.cast,
+      movie.plot,
+    ];
+    const hasSearchMatch = searchableFields
+      .filter(Boolean)
+      .some((value) => normalizeSearchText(value).includes(search));
+    if (!hasSearchMatch) {
+      return false;
+    }
   }
-  return movies;
+
+  if (state.libraryFilters.year && getMovieYear(movie) !== state.libraryFilters.year) {
+    return false;
+  }
+
+  if (!matchesRatingRange(movie.rating, state.libraryFilters.rating)) {
+    return false;
+  }
+
+  if (state.libraryFilters.genre && !hasMatchingValue(getMovieGenres(movie), state.libraryFilters.genre)) {
+    return false;
+  }
+
+  if (state.libraryFilters.director && !hasMatchingValue(getMovieDirectors(movie), state.libraryFilters.director)) {
+    return false;
+  }
+
+  return true;
+}
+
+function getRandomMoviePool(source = "library") {
+  if (source !== "library") {
+    return [];
+  }
+  return getVisibleMovies().filter((movie) => matchesRandomSettings(movie, { source }));
+}
+
+async function pickExternalRandomMovie() {
+  const originalText = elements.pickExternalMovie.textContent;
+  elements.pickExternalMovie.disabled = true;
+  elements.pickExternalMovie.textContent = "Сканирую...";
+  elements.pickedMovie.innerHTML = "<span class=\"muted\">Ищу случайный фильм во внешнем каталоге...</span>";
+  elements.pickedDetails.hidden = true;
+  elements.pickedDetails.innerHTML = "";
+
+  try {
+    const picked = await findExternalRandomMovie();
+    if (!picked) {
+      elements.pickedMovie.innerHTML = "<span class=\"muted\">Под эти настройки внешний каталог ничего не вернул. Попробуйте ослабить фильтры.</span>";
+      return;
+    }
+
+    elements.pickedMovie.innerHTML = `
+      <span>
+        <strong>${escapeHtml(picked.title)}</strong>
+        ${escapeHtml([picked.year, picked.rating && `${picked.rating}/10`, "внешний каталог"].filter(Boolean).join(" • "))}
+      </span>
+    `;
+    elements.pickedDetails.hidden = false;
+    renderPickedDetails(picked);
+  } catch (error) {
+    elements.pickedMovie.innerHTML = "<span class=\"muted\">Не удалось получить случайный фильм.</span>";
+    showMessage(error.message, true);
+  } finally {
+    elements.pickExternalMovie.disabled = false;
+    elements.pickExternalMovie.textContent = originalText;
+  }
+}
+
+async function findExternalRandomMovie() {
+  const queries = shuffleArray(buildExternalRandomQueries());
+  const seen = new Set();
+
+  for (const query of queries.slice(0, 10)) {
+    const candidates = await tryFetch(() => fetchCinemetaCandidates(query), []);
+    for (const candidate of shuffleArray(candidates).slice(0, 8)) {
+      const key = candidate.imdbId || `${candidate.title}-${candidate.year}`;
+      if (!key || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+
+      const movie = await tryFetch(() => fetchMovieDetails(candidate), null);
+      if (movie && matchesRandomSettings(movie, { source: "external" })) {
+        return movie;
+      }
+    }
+  }
+
+  return null;
+}
+
+function buildExternalRandomQueries() {
+  const genreQueries = [...state.randomGenreFilters]
+    .map((genre) => clean(genre))
+    .filter(Boolean);
+  return [...genreQueries, ...EXTERNAL_RANDOM_QUERIES];
+}
+
+function matchesRandomSettings(movie, { source = "library" } = {}) {
+  if (source === "library" && !elements.includeWatchedRandom.checked && movie.watched) {
+    return false;
+  }
+
+  if (source === "external" && !elements.includeWatchedRandom.checked) {
+    const localMatch = findMatchingLocalMovie(movie);
+    if (localMatch?.watched) {
+      return false;
+    }
+  }
+
+  if (elements.durationFilterEnabled.checked && !matchesDurationRange(movie.runtime, getSelectedDurationRange())) {
+    return false;
+  }
+
+  if (!matchesRatingRange(movie.rating, getSelectedRatingRange())) {
+    return false;
+  }
+
+  if (!matchesRandomGenres(movie)) {
+    return false;
+  }
+
+  return true;
+}
+
+function findMatchingLocalMovie(movie) {
+  const imdbId = clean(movie.imdbId);
+  if (imdbId) {
+    const byImdbId = state.movies.find((item) => item.imdbId === imdbId);
+    if (byImdbId) {
+      return byImdbId;
+    }
+  }
+
+  const title = normalizeSearchText(movie.title || movie.originalTitle);
+  const year = getMovieYear(movie);
+  return state.movies.find((item) => {
+    return normalizeSearchText(item.title || item.originalTitle) === title && getMovieYear(item) === year;
+  }) || null;
+}
+
+function hasActiveRandomFilters() {
+  return elements.durationFilterEnabled.checked
+    || getSelectedRatingRange() !== "any"
+    || state.randomGenreFilters.size > 0;
 }
 
 function getRandomEmptyMessage() {
-  if (elements.durationFilterEnabled.checked) {
+  if (hasActiveRandomFilters()) {
     return "Под выбранные настройки не нашлось фильмов.";
   }
   return elements.includeWatchedRandom.checked
@@ -1320,6 +1740,10 @@ function getSelectedDurationRange() {
   return [...elements.durationRangeInputs].find((input) => input.checked)?.value || "standard";
 }
 
+function getSelectedRatingRange() {
+  return [...elements.ratingRangeInputs].find((input) => input.checked)?.value || "any";
+}
+
 function matchesDurationRange(runtime, range) {
   const minutes = parseRuntimeMinutes(runtime);
   if (!minutes) {
@@ -1327,6 +1751,93 @@ function matchesDurationRange(runtime, range) {
   }
   const bounds = DURATION_RANGES[range] || DURATION_RANGES.standard;
   return (!bounds.min || minutes >= bounds.min) && (!bounds.max || minutes <= bounds.max);
+}
+
+function matchesRatingRange(rating, range) {
+  if (!range || range === "any") {
+    return true;
+  }
+
+  const ratingValue = parseRatingValue(rating);
+  if (ratingValue === null) {
+    return false;
+  }
+
+  const bounds = RATING_RANGES[range];
+  if (!bounds) {
+    return true;
+  }
+
+  const aboveMin = bounds.minExclusive ? ratingValue > bounds.min : (!bounds.min || ratingValue >= bounds.min);
+  return aboveMin && (!bounds.max || ratingValue <= bounds.max);
+}
+
+function matchesRandomGenres(movie) {
+  if (!state.randomGenreFilters.size) {
+    return true;
+  }
+
+  return getMovieGenres(movie).some((genre) => hasMatchingValue(state.randomGenreFilters, genre));
+}
+
+function parseRatingValue(rating) {
+  const match = String(rating || "").replace(",", ".").match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function getUniqueYears(movies) {
+  return [...new Set(movies.map(getMovieYear).filter(Boolean))]
+    .sort((a, b) => Number(b) - Number(a) || b.localeCompare(a));
+}
+
+function getLibraryGenres() {
+  return getUniqueGenres(state.movies);
+}
+
+function getUniqueGenres(movies) {
+  return sortText([...new Set(movies.flatMap(getMovieGenres).filter(Boolean))]);
+}
+
+function getUniqueDirectors(movies) {
+  return sortText([...new Set(movies.flatMap(getMovieDirectors).filter(Boolean))]);
+}
+
+function getMovieGenres(movie) {
+  return splitMovieList(movie.genre);
+}
+
+function getMovieDirectors(movie) {
+  return splitMovieList(movie.director);
+}
+
+function getMovieYear(movie) {
+  const match = clean(movie.year).match(/\d{4}/);
+  return match ? match[0] : clean(movie.year);
+}
+
+function splitMovieList(value) {
+  return clean(value)
+    .split(/[,;•/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function hasMatchingValue(values, expectedValue) {
+  const expected = normalizeSearchText(expectedValue);
+  return [...values].some((value) => normalizeSearchText(value) === expected);
+}
+
+function sortText(values) {
+  return values.sort((a, b) => a.localeCompare(b, "ru", { sensitivity: "base" }));
+}
+
+function shuffleArray(items) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
+  }
+  return copy;
 }
 
 function parseRuntimeMinutes(runtime) {
