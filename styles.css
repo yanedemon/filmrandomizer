@@ -507,8 +507,24 @@ input:focus {
   min-width: 0;
 }
 
+.picked-expanded-heading {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+}
+
 .picked-expanded-body h3 {
+  min-width: 0;
   font-size: 1.2rem;
+  overflow-wrap: anywhere;
+}
+
+.picked-add-button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 13px;
 }
 
 .picked-expanded-body p,
