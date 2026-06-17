@@ -1,43 +1,42 @@
+import {
+  PLACEHOLDER_POSTER,
+  normalizeMovie,
+  normalizeSearchText,
+} from "./services/movieModel.js";
+import {
+  fetchCinemetaCandidates,
+  fetchMovieDetails,
+  getExpandedMovie,
+  searchMovieCandidates,
+} from "./services/movieCatalogService.js";
+import {
+  getDisplayMovies as getFilteredLibraryMovies,
+  getLibraryGenres as getLibrarySearchGenres,
+  getUniqueDirectors as getLibrarySearchDirectors,
+  getUniqueGenres as getLibrarySearchUniqueGenres,
+  getUniqueYears as getLibrarySearchYears,
+  getVisibleMovies as getLibraryVisibleMovies,
+  matchesLibraryFilters as matchesLibrarySearchFilters,
+} from "./services/librarySearchService.js";
+import {
+  findExternalRandomMovie as findRecommendedExternalRandomMovie,
+  findMatchingLocalMovie as findLocalMovieMatch,
+  getRandomMoviePool as getRecommendedMoviePool,
+  matchesRandomSettings as matchesRecommendedRandomSettings,
+  pickRandomMovieFromPool as pickRecommendedMovieFromPool,
+} from "./services/movieRecommendationService.js";
+
 const USER_STORAGE = "film-randomizer.user";
 const LEGACY_MOVIES_STORAGE = "film-randomizer.movies";
-const WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql";
-const WIKIPEDIA_SUMMARY_URL = "https://ru.wikipedia.org/api/rest_v1/page/summary/";
-const CINEMETA_SEARCH_URL = "https://v3-cinemeta.strem.io/catalog/movie/top/search=";
-const CINEMETA_META_URL = "https://v3-cinemeta.strem.io/meta/movie/";
 const PAGE_SIZE = 15;
 const GLITCH_CHARS = "&^%$#@01";
-const DURATION_RANGES = {
-  short: { max: 60 },
-  standard: { min: 60, max: 130 },
-  long: { min: 131 },
-};
-const RATING_RANGES = {
-  low: { max: 5.5 },
-  medium: { min: 5.6, max: 7.5 },
-  high: { min: 7.6, minExclusive: true },
-};
-const EXTERNAL_RANDOM_QUERIES = [
-  "movie",
-  "film",
-  "classic",
-  "action",
-  "comedy",
-  "drama",
-  "thriller",
-  "adventure",
-  "science fiction",
-  "crime",
-  "romance",
-  "horror",
-];
-const PLACEHOLDER_POSTER =
-  "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 180'%3E%3Crect width='120' height='180' fill='%23d8d1c6'/%3E%3Cpath d='M28 43h64v94H28z' fill='none' stroke='%23687076' stroke-width='6'/%3E%3Cpath d='M43 63h34M43 83h34M43 103h21' stroke='%23687076' stroke-width='6' stroke-linecap='round'/%3E%3C/svg%3E";
 
 const state = {
   user: loadUser(),
   movies: [],
   collections: [],
   selectedCollectionId: "all",
+  randomResultMovie: null,
   pendingCandidates: [],
   visibleMovieLimit: PAGE_SIZE,
   hideWatched: false,
@@ -57,6 +56,8 @@ const state = {
   importRows: [],
   isLoading: false,
   isMigratingLegacy: false,
+  recentLibraryRandomIds: [],
+  recentExternalRandomKeys: [],
 };
 
 const elements = {
@@ -239,6 +240,7 @@ elements.movieImportFile.addEventListener("change", async () => {
 elements.randomSettingsToggle.addEventListener("click", toggleRandomSettings);
 
 elements.pickMovie.addEventListener("click", async () => {
+  state.randomResultMovie = null;
   const pool = getRandomMoviePool("library");
   if (!pool.length) {
     elements.pickedMovie.innerHTML = `<span class="muted">${getRandomEmptyMessage()}</span>`;
@@ -247,7 +249,7 @@ elements.pickMovie.addEventListener("click", async () => {
     return;
   }
 
-  const picked = pool[Math.floor(Math.random() * pool.length)];
+  const picked = pickRandomMovieFromPool(pool);
   elements.pickedMovie.innerHTML = `
     <span>
       <strong>${escapeHtml(picked.title)}</strong>
@@ -262,6 +264,15 @@ elements.pickMovie.addEventListener("click", async () => {
 });
 
 elements.pickExternalMovie.addEventListener("click", pickExternalRandomMovie);
+
+elements.pickedDetails.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-action='add-picked-movie']");
+  if (!button) {
+    return;
+  }
+
+  addRandomResultMovie(button);
+});
 
 elements.includeWatchedRandom.addEventListener("change", () => {
   render();
@@ -650,177 +661,118 @@ async function migrateLegacyMovies() {
   }
 }
 
-async function searchMovieCandidates(title) {
-  const wikidataCandidates = await tryFetch(() => fetchWikidataCandidates(title), []);
-  if (wikidataCandidates.length) {
-    return wikidataCandidates;
-  }
-
-  return fetchCinemetaCandidates(title);
+async function addMovieFromCandidate(candidate) {
+  const existingMovie = findMatchingLocalMovie(movieLookupFromCandidate(candidate));
+  const movie = existingMovie || await fetchMovieDetails(candidate);
+  const result = await saveMovieToLibrary(movie);
+  elements.titleInput.value = "";
+  showMovieSaveResult(result);
 }
 
-async function addMovieFromCandidate(candidate) {
-  if (candidate.imdbId && state.movies.some((item) => item.imdbId === candidate.imdbId)) {
-    showMessage("Этот фильм уже есть в списке.");
+async function addRandomResultMovie(button) {
+  if (!state.randomResultMovie) {
     return;
   }
 
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Добавляю...";
+
+  try {
+    const result = await saveMovieToLibrary(state.randomResultMovie);
+    state.randomResultMovie = { ...state.randomResultMovie, ...result.movie };
+    renderPickedDetails(state.randomResultMovie, { showAddAction: true });
+    showMovieSaveResult(result);
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = originalText;
+    showMessage(error.message, true);
+  }
+}
+
+async function saveMovieToLibrary(movie) {
   const activeCollection = getSelectedCollection();
-  const movie = await fetchMovieDetails(candidate);
+  const existingMovie = findMatchingLocalMovie(movie);
+
+  if (existingMovie) {
+    const attachment = activeCollection
+      ? await attachMovieToCollection(existingMovie.id, activeCollection)
+      : { name: "", added: false };
+    if (attachment.added) {
+      await loadLibrary();
+    }
+    return {
+      movie: existingMovie,
+      alreadyInLibrary: true,
+      collectionName: attachment.name,
+      attachedToCollection: attachment.added,
+    };
+  }
+
   const response = await apiFetch("/api/movies", {
     method: "POST",
     body: JSON.stringify(movie),
   });
+  const attachment = activeCollection
+    ? await attachMovieToCollection(response.movie.id, activeCollection)
+    : { name: "", added: false };
 
-  if (response.alreadyExists) {
-    showMessage("Этот фильм уже есть в списке.");
+  if (!response.alreadyExists || attachment.added) {
+    await loadLibrary();
+  }
+
+  return {
+    movie: response.movie,
+    alreadyInLibrary: Boolean(response.alreadyExists),
+    collectionName: attachment.name,
+    attachedToCollection: attachment.added,
+  };
+}
+
+function showMovieSaveResult(result) {
+  const title = result.movie?.title || "Фильм";
+
+  if (result.attachedToCollection) {
+    showMessage(result.alreadyInLibrary
+      ? `Добавлено в коллекцию «${result.collectionName}»: ${title}.`
+      : `Сохранено: ${title}. Добавлено в коллекцию «${result.collectionName}».`);
     return;
   }
 
-  elements.titleInput.value = "";
-  const attachedCollectionName = activeCollection
-    ? await attachMovieToCollection(response.movie.id, activeCollection)
-    : "";
-  await loadLibrary();
-  showMessage(attachedCollectionName
-    ? `Сохранено: ${response.movie.title}. Добавлено в коллекцию «${attachedCollectionName}».`
-    : `Сохранено: ${response.movie.title}`);
+  if (result.alreadyInLibrary) {
+    showMessage(result.collectionName
+      ? `Этот фильм уже есть в коллекции «${result.collectionName}».`
+      : "Этот фильм уже есть в списке.");
+    return;
+  }
+
+  showMessage(`Сохранено: ${title}`);
 }
 
 async function attachMovieToCollection(movieId, collection) {
-  if (!collection || collection.movieIds.includes(movieId)) {
-    return collection?.name || "";
+  const numericMovieId = Number(movieId);
+  const collectionMovieIds = new Set((collection?.movieIds || []).map(Number));
+  if (!collection || collectionMovieIds.has(numericMovieId)) {
+    return { name: collection?.name || "", added: false };
   }
 
   await apiFetch(`/api/collections/${collection.id}`, {
     method: "PATCH",
     body: JSON.stringify({
       name: collection.name,
-      movieIds: [...collection.movieIds, movieId],
+      movieIds: [...collectionMovieIds, numericMovieId],
     }),
   });
-  return collection.name;
+  return { name: collection.name, added: true };
 }
 
-async function fetchMovieDetails(candidate) {
-  const details = candidate.imdbId
-    ? await tryFetch(() => fetchCinemetaDetailsById(candidate.imdbId), {})
-    : {};
-  const russianPlot = candidate.wikiTitle
-    ? await tryFetch(() => fetchRussianSummary(candidate.wikiTitle), "")
-    : "";
-
-  return normalizeMovie({
-    imdbId: candidate.imdbId || details.imdbId,
-    title: candidate.ruTitle || candidate.title || details.title,
-    originalTitle: candidate.enTitle || details.title,
-    year: candidate.year || details.year,
-    poster: details.poster || candidate.poster,
-    rating: details.rating,
-    runtime: details.runtime,
-    genre: details.genre,
-    director: details.director,
-    cast: details.cast,
-    plot: russianPlot || candidate.ruDescription || details.plot,
-  });
-}
-
-async function fetchWikidataCandidates(title) {
-  const query = `
-    SELECT ?item ?itemLabel ?itemDescription ?imdbId ?date ?ruwikiTitle ?enLabel WHERE {
-      SERVICE wikibase:mwapi {
-        bd:serviceParam wikibase:endpoint "www.wikidata.org";
-          wikibase:api "EntitySearch";
-          mwapi:search "${escapeSparqlString(title)}";
-          mwapi:language "ru";
-          mwapi:limit "10".
-        ?item wikibase:apiOutputItem mwapi:item.
-      }
-      ?item wdt:P31/wdt:P279* wd:Q11424.
-      ?item wdt:P345 ?imdbId.
-      OPTIONAL { ?item wdt:P577 ?date. }
-      OPTIONAL {
-        ?ruwiki schema:about ?item;
-          schema:isPartOf <https://ru.wikipedia.org/>;
-          schema:name ?ruwikiTitle.
-      }
-      OPTIONAL { ?item rdfs:label ?enLabel FILTER(LANG(?enLabel) = "en") }
-      SERVICE wikibase:label { bd:serviceParam wikibase:language "ru,en". }
-    }
-    LIMIT 12
-  `;
-
-  const params = new URLSearchParams({ query, format: "json" });
-  const response = await fetch(`${WIKIDATA_SPARQL_URL}?${params}`);
-  if (!response.ok) {
-    throw new Error("Wikidata не ответила.");
-  }
-
-  const data = await response.json();
-  return uniqueCandidates(data.results.bindings.map((item) => ({
-    source: "wikidata",
-    imdbId: readBinding(item, "imdbId"),
-    title: readBinding(item, "itemLabel"),
-    ruTitle: readBinding(item, "itemLabel"),
-    enTitle: readBinding(item, "enLabel"),
-    ruDescription: readBinding(item, "itemDescription"),
-    wikiTitle: readBinding(item, "ruwikiTitle"),
-    year: yearFromDate(readBinding(item, "date")),
-  }))).slice(0, 8);
-}
-
-async function fetchCinemetaCandidates(title) {
-  const searchUrl = `${CINEMETA_SEARCH_URL}${encodeURIComponent(title)}.json`;
-  const response = await fetch(searchUrl);
-  if (!response.ok) {
-    throw new Error("Не удалось получить данные о фильме. Попробуйте позже.");
-  }
-
-  const data = await response.json();
-  return uniqueCandidates((data.metas || [])
-    .filter((item) => item.type === "movie")
-    .map((item) => ({
-      source: "cinemeta",
-      imdbId: item.imdb_id || item.id,
-      title: item.name,
-      enTitle: item.name,
-      year: item.releaseInfo || item.year,
-      poster: item.poster,
-      ruDescription: "Cinemeta",
-    }))).slice(0, 8);
-}
-
-async function fetchCinemetaDetailsById(imdbId) {
-  const response = await fetch(`${CINEMETA_META_URL}${encodeURIComponent(imdbId)}.json`);
-  if (!response.ok) {
-    throw new Error("Cinemeta не ответила.");
-  }
-
-  const data = await response.json();
-  const details = data.meta || {};
-
+function movieLookupFromCandidate(candidate) {
   return {
-    imdbId: details.imdb_id || details.id || imdbId,
-    title: details.name,
-    year: details.year || details.releaseInfo,
-    poster: details.poster,
-    rating: details.imdbRating,
-    runtime: details.runtime,
-    genre: joinList(details.genre || details.genres),
-    director: joinList(details.director),
-    cast: joinList(details.cast),
-    plot: details.description || details.plot,
+    imdbId: candidate.imdbId,
+    title: candidate.ruTitle || candidate.title,
+    originalTitle: candidate.enTitle || candidate.title,
+    year: candidate.year,
   };
-}
-
-async function fetchRussianSummary(wikiTitle) {
-  const response = await fetch(`${WIKIPEDIA_SUMMARY_URL}${encodeURIComponent(wikiTitle)}`);
-  if (!response.ok) {
-    throw new Error("Wikipedia не ответила.");
-  }
-
-  const data = await response.json();
-  return clean(data.extract);
 }
 
 async function prepareImportFromFile(file) {
@@ -1089,6 +1041,7 @@ function render() {
   renderLibraryFilterOptions();
   renderRandomGenreSummary();
   renderCards();
+  refreshRandomResultDetails();
   elements.clearWatched.disabled = !getVisibleMovies().some((movie) => movie.watched);
   elements.clearWatched.textContent = state.hideWatched ? "Показать просмотренные" : "Убрать просмотренные";
   elements.pickMovie.disabled = !getRandomMoviePool("library").length;
@@ -1433,47 +1386,18 @@ function hideSearchResults() {
   elements.searchResults.innerHTML = "";
 }
 
-function normalizeMovie(movie) {
-  const imdbId = movie.imdbId || makeId();
-  const title = clean(movie.title) || clean(movie.originalTitle) || "Без названия";
-
-  return {
-    imdbId,
-    title,
-    originalTitle: clean(movie.originalTitle),
-    year: clean(movie.year),
-    poster: movie.poster && movie.poster !== "N/A" ? movie.poster : PLACEHOLDER_POSTER,
-    rating: movie.rating && movie.rating !== "N/A" ? movie.rating : "",
-    runtime: clean(movie.runtime),
-    genre: clean(movie.genre),
-    director: clean(movie.director),
-    cast: clean(movie.cast),
-    plot: clean(movie.plot) || "Описание не найдено.",
-    watched: false,
-  };
+function renderPickedDetails(movie, options = {}) {
+  elements.pickedDetails.innerHTML = renderMovieDetailsCard(movie, options);
 }
 
-async function getExpandedMovie(movie) {
-  const details = movie.imdbId
-    ? await tryFetch(() => fetchCinemetaDetailsById(movie.imdbId), {})
-    : {};
-
-  return {
-    ...details,
-    ...movie,
-    runtime: movie.runtime || details.runtime || "",
-    genre: movie.genre || details.genre || "",
-    director: movie.director || details.director || "",
-    cast: movie.cast || details.cast || "",
-    plot: movie.plot || details.plot || "Описание не найдено.",
-  };
-}
-
-function renderPickedDetails(movie) {
-  elements.pickedDetails.innerHTML = renderMovieDetailsCard(movie);
+function refreshRandomResultDetails() {
+  if (state.randomResultMovie && !elements.pickedDetails.hidden) {
+    renderPickedDetails(state.randomResultMovie, { showAddAction: true });
+  }
 }
 
 function resetPickedMovie() {
+  state.randomResultMovie = null;
   elements.pickedMovie.innerHTML = "<span class=\"muted\">Непросмотренные фильмы ждут своего часа.</span>";
   elements.pickedDetails.hidden = true;
   elements.pickedDetails.innerHTML = "";
@@ -1511,7 +1435,9 @@ function closePlotModal() {
   delete elements.plotModalBody.dataset.movieKey;
 }
 
-function renderMovieDetailsCard(movie, { className = "picked-expanded-card", isLoading = false } = {}) {
+function renderMovieDetailsCard(movie, { className = "picked-expanded-card", isLoading = false, showAddAction = false } = {}) {
+  const addAction = showAddAction ? renderRandomResultAddAction(movie) : "";
+
   return `
     <article class="${className}">
       <img class="picked-expanded-poster" src="${escapeHtml(movie.poster || PLACEHOLDER_POSTER)}" alt="Постер: ${escapeHtml(movie.title)}">
@@ -1521,7 +1447,10 @@ function renderMovieDetailsCard(movie, { className = "picked-expanded-card", isL
           ${movie.runtime ? `<span class="runtime">${escapeHtml(movie.runtime)}</span>` : ""}
           <span class="rating">${escapeHtml(movie.rating ? `IMDb ${movie.rating}` : "IMDb —")}</span>
         </div>
-        <h3>${escapeHtml(movie.title)}</h3>
+        <div class="picked-expanded-heading">
+          <h3>${escapeHtml(movie.title)}</h3>
+          ${addAction}
+        </div>
         <dl class="detail-list">
           <div><dt>Оригинал</dt><dd>${escapeHtml(movie.originalTitle || "не найдено")}</dd></div>
           <div><dt>Год</dt><dd>${escapeHtml(movie.year || "не найден")}</dd></div>
@@ -1538,77 +1467,100 @@ function renderMovieDetailsCard(movie, { className = "picked-expanded-card", isL
   `;
 }
 
+function renderRandomResultAddAction(movie) {
+  const action = getRandomResultAddAction(movie);
+  return `
+    <button
+      class="primary-button picked-add-button"
+      type="button"
+      data-action="add-picked-movie"
+      aria-label="${escapeHtml(action.ariaLabel)}"
+      ${action.disabled ? "disabled" : ""}
+    >${escapeHtml(action.label)}</button>
+  `;
+}
+
+function getRandomResultAddAction(movie) {
+  const selectedCollection = getSelectedCollection();
+  const localMatch = findMatchingLocalMovie(movie);
+  const title = movie.title || "фильм";
+
+  if (!localMatch) {
+    return {
+      label: "Добавить",
+      disabled: false,
+      ariaLabel: selectedCollection
+        ? `Добавить «${title}» в список и коллекцию «${selectedCollection.name}»`
+        : `Добавить «${title}» в список`,
+    };
+  }
+
+  if (selectedCollection) {
+    const collectionMovieIds = new Set(selectedCollection.movieIds.map(Number));
+    if (collectionMovieIds.has(Number(localMatch.id))) {
+      return {
+        label: "В коллекции",
+        disabled: true,
+        ariaLabel: `«${title}» уже есть в коллекции «${selectedCollection.name}»`,
+      };
+    }
+
+    return {
+      label: "Добавить",
+      disabled: false,
+      ariaLabel: `Добавить «${title}» в коллекцию «${selectedCollection.name}»`,
+    };
+  }
+
+  return {
+    label: "В списке",
+    disabled: true,
+    ariaLabel: `«${title}» уже есть в списке`,
+  };
+}
+
 function isCardControlTarget(target) {
   return Boolean(target.closest("button, input, label, select, textarea, a, .card-actions"));
 }
 
 function getVisibleMovies() {
-  const selected = getSelectedCollection();
-  if (!selected) {
-    return state.movies;
-  }
-  const movieIds = new Set(selected.movieIds.map(Number));
-  return state.movies.filter((movie) => movieIds.has(movie.id));
+  return getLibraryVisibleMovies(state.movies, getSelectedCollection());
 }
 
 function getDisplayMovies() {
-  let movies = getVisibleMovies();
-  if (state.hideWatched) {
-    movies = movies.filter((movie) => !movie.watched);
-  }
-  return movies.filter(matchesLibraryFilters);
+  return getFilteredLibraryMovies(state.movies, {
+    selectedCollection: getSelectedCollection(),
+    hideWatched: state.hideWatched,
+    search: state.librarySearch,
+    filters: state.libraryFilters,
+  });
 }
 
 function matchesLibraryFilters(movie) {
-  const search = normalizeSearchText(state.librarySearch);
-  if (search) {
-    const searchableFields = [
-      movie.title,
-      movie.originalTitle,
-      movie.year,
-      movie.rating,
-      movie.runtime,
-      movie.genre,
-      movie.director,
-      movie.cast,
-      movie.plot,
-    ];
-    const hasSearchMatch = searchableFields
-      .filter(Boolean)
-      .some((value) => normalizeSearchText(value).includes(search));
-    if (!hasSearchMatch) {
-      return false;
-    }
-  }
-
-  if (state.libraryFilters.year && getMovieYear(movie) !== state.libraryFilters.year) {
-    return false;
-  }
-
-  if (!matchesRatingRange(movie.rating, state.libraryFilters.rating)) {
-    return false;
-  }
-
-  if (state.libraryFilters.genre && !hasMatchingValue(getMovieGenres(movie), state.libraryFilters.genre)) {
-    return false;
-  }
-
-  if (state.libraryFilters.director && !hasMatchingValue(getMovieDirectors(movie), state.libraryFilters.director)) {
-    return false;
-  }
-
-  return true;
+  return matchesLibrarySearchFilters(movie, {
+    search: state.librarySearch,
+    filters: state.libraryFilters,
+  });
 }
 
 function getRandomMoviePool(source = "library") {
-  if (source !== "library") {
-    return [];
-  }
-  return getVisibleMovies().filter((movie) => matchesRandomSettings(movie, { source }));
+  return getRecommendedMoviePool({
+    source,
+    movies: getVisibleMovies(),
+    localMovies: state.movies,
+    settings: getRandomSelectionSettings(),
+  });
+}
+
+function pickRandomMovieFromPool(pool) {
+  const result = pickRecommendedMovieFromPool(pool, state.recentLibraryRandomIds);
+  state.recentLibraryRandomIds = result.recentIds;
+  return result.movie;
 }
 
 async function pickExternalRandomMovie() {
   const originalText = elements.pickExternalMovie.textContent;
+  state.randomResultMovie = null;
   elements.pickExternalMovie.disabled = true;
   elements.pickExternalMovie.textContent = "Сканирую...";
   elements.pickedMovie.innerHTML = "<span class=\"muted\">Ищу случайный фильм во внешнем каталоге...</span>";
@@ -1629,8 +1581,10 @@ async function pickExternalRandomMovie() {
       </span>
     `;
     elements.pickedDetails.hidden = false;
-    renderPickedDetails(picked);
+    state.randomResultMovie = picked;
+    renderPickedDetails(picked, { showAddAction: true });
   } catch (error) {
+    state.randomResultMovie = null;
     elements.pickedMovie.innerHTML = "<span class=\"muted\">Не удалось получить случайный фильм.</span>";
     showMessage(error.message, true);
   } finally {
@@ -1640,76 +1594,39 @@ async function pickExternalRandomMovie() {
 }
 
 async function findExternalRandomMovie() {
-  const queries = shuffleArray(buildExternalRandomQueries());
-  const seen = new Set();
-
-  for (const query of queries.slice(0, 10)) {
-    const candidates = await tryFetch(() => fetchCinemetaCandidates(query), []);
-    for (const candidate of shuffleArray(candidates).slice(0, 8)) {
-      const key = candidate.imdbId || `${candidate.title}-${candidate.year}`;
-      if (!key || seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-
-      const movie = await tryFetch(() => fetchMovieDetails(candidate), null);
-      if (movie && matchesRandomSettings(movie, { source: "external" })) {
-        return movie;
-      }
-    }
-  }
-
-  return null;
-}
-
-function buildExternalRandomQueries() {
-  const genreQueries = [...state.randomGenreFilters]
-    .map((genre) => clean(genre))
-    .filter(Boolean);
-  return [...genreQueries, ...EXTERNAL_RANDOM_QUERIES];
+  const result = await findRecommendedExternalRandomMovie({
+    catalog: {
+      fetchCinemetaCandidates,
+      fetchMovieDetails,
+    },
+    localMovies: state.movies,
+    recentKeys: state.recentExternalRandomKeys,
+    settings: getRandomSelectionSettings(),
+  });
+  state.recentExternalRandomKeys = result.recentKeys;
+  return result.movie;
 }
 
 function matchesRandomSettings(movie, { source = "library" } = {}) {
-  if (source === "library" && !elements.includeWatchedRandom.checked && movie.watched) {
-    return false;
-  }
-
-  if (source === "external" && !elements.includeWatchedRandom.checked) {
-    const localMatch = findMatchingLocalMovie(movie);
-    if (localMatch?.watched) {
-      return false;
-    }
-  }
-
-  if (elements.durationFilterEnabled.checked && !matchesDurationRange(movie.runtime, getSelectedDurationRange())) {
-    return false;
-  }
-
-  if (!matchesRatingRange(movie.rating, getSelectedRatingRange())) {
-    return false;
-  }
-
-  if (!matchesRandomGenres(movie)) {
-    return false;
-  }
-
-  return true;
+  return matchesRecommendedRandomSettings(movie, {
+    source,
+    localMovies: state.movies,
+    settings: getRandomSelectionSettings(),
+  });
 }
 
 function findMatchingLocalMovie(movie) {
-  const imdbId = clean(movie.imdbId);
-  if (imdbId) {
-    const byImdbId = state.movies.find((item) => item.imdbId === imdbId);
-    if (byImdbId) {
-      return byImdbId;
-    }
-  }
+  return findLocalMovieMatch(state.movies, movie);
+}
 
-  const title = normalizeSearchText(movie.title || movie.originalTitle);
-  const year = getMovieYear(movie);
-  return state.movies.find((item) => {
-    return normalizeSearchText(item.title || item.originalTitle) === title && getMovieYear(item) === year;
-  }) || null;
+function getRandomSelectionSettings() {
+  return {
+    includeWatched: elements.includeWatchedRandom.checked,
+    durationFilterEnabled: elements.durationFilterEnabled.checked,
+    durationRange: getSelectedDurationRange(),
+    ratingRange: getSelectedRatingRange(),
+    genreFilters: state.randomGenreFilters,
+  };
 }
 
 function hasActiveRandomFilters() {
@@ -1744,121 +1661,20 @@ function getSelectedRatingRange() {
   return [...elements.ratingRangeInputs].find((input) => input.checked)?.value || "any";
 }
 
-function matchesDurationRange(runtime, range) {
-  const minutes = parseRuntimeMinutes(runtime);
-  if (!minutes) {
-    return false;
-  }
-  const bounds = DURATION_RANGES[range] || DURATION_RANGES.standard;
-  return (!bounds.min || minutes >= bounds.min) && (!bounds.max || minutes <= bounds.max);
-}
-
-function matchesRatingRange(rating, range) {
-  if (!range || range === "any") {
-    return true;
-  }
-
-  const ratingValue = parseRatingValue(rating);
-  if (ratingValue === null) {
-    return false;
-  }
-
-  const bounds = RATING_RANGES[range];
-  if (!bounds) {
-    return true;
-  }
-
-  const aboveMin = bounds.minExclusive ? ratingValue > bounds.min : (!bounds.min || ratingValue >= bounds.min);
-  return aboveMin && (!bounds.max || ratingValue <= bounds.max);
-}
-
-function matchesRandomGenres(movie) {
-  if (!state.randomGenreFilters.size) {
-    return true;
-  }
-
-  return getMovieGenres(movie).some((genre) => hasMatchingValue(state.randomGenreFilters, genre));
-}
-
-function parseRatingValue(rating) {
-  const match = String(rating || "").replace(",", ".").match(/\d+(?:\.\d+)?/);
-  return match ? Number(match[0]) : null;
-}
-
 function getUniqueYears(movies) {
-  return [...new Set(movies.map(getMovieYear).filter(Boolean))]
-    .sort((a, b) => Number(b) - Number(a) || b.localeCompare(a));
+  return getLibrarySearchYears(movies);
 }
 
 function getLibraryGenres() {
-  return getUniqueGenres(state.movies);
+  return getLibrarySearchGenres(state.movies);
 }
 
 function getUniqueGenres(movies) {
-  return sortText([...new Set(movies.flatMap(getMovieGenres).filter(Boolean))]);
+  return getLibrarySearchUniqueGenres(movies);
 }
 
 function getUniqueDirectors(movies) {
-  return sortText([...new Set(movies.flatMap(getMovieDirectors).filter(Boolean))]);
-}
-
-function getMovieGenres(movie) {
-  return splitMovieList(movie.genre);
-}
-
-function getMovieDirectors(movie) {
-  return splitMovieList(movie.director);
-}
-
-function getMovieYear(movie) {
-  const match = clean(movie.year).match(/\d{4}/);
-  return match ? match[0] : clean(movie.year);
-}
-
-function splitMovieList(value) {
-  return clean(value)
-    .split(/[,;•/]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function hasMatchingValue(values, expectedValue) {
-  const expected = normalizeSearchText(expectedValue);
-  return [...values].some((value) => normalizeSearchText(value) === expected);
-}
-
-function sortText(values) {
-  return values.sort((a, b) => a.localeCompare(b, "ru", { sensitivity: "base" }));
-}
-
-function shuffleArray(items) {
-  const copy = [...items];
-  for (let index = copy.length - 1; index > 0; index -= 1) {
-    const randomIndex = Math.floor(Math.random() * (index + 1));
-    [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
-  }
-  return copy;
-}
-
-function parseRuntimeMinutes(runtime) {
-  const text = String(runtime || "").trim().toLowerCase();
-  if (!text) {
-    return null;
-  }
-
-  const iso = text.match(/pt(?:(\d+)h)?(?:(\d+)m)?/i);
-  if (iso?.[1] || iso?.[2]) {
-    return Number(iso[1] || 0) * 60 + Number(iso[2] || 0);
-  }
-
-  const hours = text.match(/(\d+)\s*(?:h|hr|hrs|hour|hours|ч|час|часа|часов)/i);
-  const minutes = text.match(/(\d+)\s*(?:m|min|mins|minute|minutes|м|мин|минута|минуты|минут)/i);
-  if (hours || minutes) {
-    return Number(hours?.[1] || 0) * 60 + Number(minutes?.[1] || 0);
-  }
-
-  const plainMinutes = text.match(/\b(\d{1,3})\b/);
-  return plainMinutes ? Number(plainMinutes[1]) : null;
+  return getLibrarySearchDirectors(movies);
 }
 
 function getSelectedCollection() {
@@ -1943,60 +1759,6 @@ function revealTerminalText(element) {
       });
     }
   }, 34);
-}
-
-function uniqueCandidates(candidates) {
-  const seen = new Set();
-  return candidates.filter((candidate) => {
-    const key = candidate.imdbId || `${candidate.title}-${candidate.year}`;
-    if (!key || seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
-function readBinding(item, key) {
-  return item[key]?.value || "";
-}
-
-function yearFromDate(value) {
-  const match = String(value).match(/\d{4}/);
-  return match ? match[0] : "";
-}
-
-function joinList(value) {
-  return Array.isArray(value) ? value.filter(Boolean).join(", ") : clean(value);
-}
-
-async function tryFetch(callback, fallback) {
-  try {
-    return await callback();
-  } catch (error) {
-    console.warn(error);
-    return fallback;
-  }
-}
-
-function makeId() {
-  if (globalThis.crypto?.randomUUID) {
-    return crypto.randomUUID();
-  }
-
-  return `movie-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function clean(value) {
-  return value && value !== "N/A" ? String(value).trim() : "";
-}
-
-function normalizeSearchText(value) {
-  return clean(value).toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
-}
-
-function escapeSparqlString(value) {
-  return String(value).replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
 }
 
 function escapeHtml(value) {
