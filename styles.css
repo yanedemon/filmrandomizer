@@ -2718,17 +2718,50 @@ input::placeholder {
 @keyframes appLogoPulse {
   0%,
   100% {
-    filter: drop-shadow(0 0 12px rgba(0, 255, 65, 0.32));
-    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 16px rgba(0, 255, 65, 0.4));
+    transform: translateY(0) scale(1) rotate(0deg);
   }
 
   50% {
-    filter: drop-shadow(0 0 18px rgba(0, 229, 255, 0.34)) drop-shadow(0 0 28px rgba(0, 255, 65, 0.18));
-    transform: translateY(-1px) scale(1.012);
+    filter: drop-shadow(0 0 24px rgba(0, 229, 255, 0.42)) drop-shadow(0 0 42px rgba(0, 255, 65, 0.28));
+    transform: translateY(-3px) scale(1.024) rotate(0.35deg);
   }
 }
 
-body::before {
+@keyframes logoLightSweep {
+  0%,
+  42% {
+    opacity: 0;
+    transform: translateX(-135%) skewX(-18deg);
+  }
+
+  55% {
+    opacity: 0.72;
+  }
+
+  72%,
+  100% {
+    opacity: 0;
+    transform: translateX(135%) skewX(-18deg);
+  }
+}
+
+@keyframes panelGreenFlow {
+  0% {
+    background-position: 0 0, 0 0, 12% 16%, 0 0, 0 0;
+  }
+
+  50% {
+    background-position: 36px 0, 0 28px, 78% 42%, 0 0, 0 0;
+  }
+
+  100% {
+    background-position: 72px 0, 0 56px, 18% 82%, 0 0, 0 0;
+  }
+}
+
+body::before,
+[data-theme="dark"] body::before {
   content: "";
   position: fixed;
   inset: 0;
@@ -2743,10 +2776,42 @@ body::before {
   will-change: background-position, opacity;
 }
 
+.toolbar,
+.auth-section,
+.action-strip,
+.status-row,
+.collections-section,
+.movie-section,
+.search-results {
+  background-size: 82px 82px, 82px 82px, 180% 180%, 100% 100%, auto;
+  animation: xenoPanelLock 520ms var(--ease-out) both, panelGreenFlow 13s linear 520ms infinite;
+}
+
+.toolbar {
+  animation: panelGreenFlow 13s linear infinite;
+}
+
+.app-logo {
+  position: relative;
+  overflow: hidden;
+}
+
 .app-logo img {
   animation: appLogoPulse 5.8s ease-in-out infinite;
   transform-origin: center;
   will-change: filter, transform;
+}
+
+.app-logo::after {
+  content: "";
+  position: absolute;
+  inset: 4% 20%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 24%, rgba(0, 255, 65, 0.42) 48%, rgba(0, 229, 255, 0.24) 54%, transparent 76%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: logoLightSweep 4.8s ease-in-out infinite;
+  will-change: opacity, transform;
 }
 
 .field input:not([type="checkbox"]):not([type="radio"]),
@@ -2847,6 +2912,51 @@ body::before {
   box-shadow: none;
 }
 
+.search-results .candidate-list {
+  gap: 6px;
+}
+
+.search-results .candidate-option {
+  display: block;
+  min-height: 42px;
+  padding: 7px 11px;
+}
+
+.search-results .candidate-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) max-content;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.search-results .candidate-main,
+.search-results .candidate-details {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-results .candidate-main {
+  max-width: clamp(120px, 30vw, 360px);
+}
+
+.search-results .candidate-details {
+  color: var(--xeno-muted);
+  font-size: 0.78rem;
+  line-height: 1.2;
+}
+
+.search-results .candidate-tags {
+  flex-wrap: nowrap;
+}
+
+.search-results .candidate-details:empty {
+  display: none;
+}
+
 .card-body {
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 7px;
@@ -2935,6 +3045,18 @@ body::before {
 }
 
 @media (max-width: 760px) {
+  .search-results .candidate-heading {
+    grid-template-columns: minmax(0, 1fr) max-content;
+  }
+
+  .search-results .candidate-details {
+    grid-column: 1 / -1;
+  }
+
+  .search-results .candidate-main {
+    max-width: none;
+  }
+
   .card-heading-line {
     flex-wrap: wrap;
     align-items: flex-start;
@@ -2956,7 +3078,25 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
   body::before,
+  [data-theme="dark"] body::before {
+    animation: pageGreenFlow 17s ease-in-out infinite !important;
+  }
+
+  .toolbar,
+  .auth-section,
+  .action-strip,
+  .status-row,
+  .collections-section,
+  .movie-section,
+  .search-results {
+    animation: panelGreenFlow 13s linear infinite !important;
+  }
+
   .app-logo img {
-    animation: none !important;
+    animation: appLogoPulse 5.8s ease-in-out infinite !important;
+  }
+
+  .app-logo::after {
+    animation: logoLightSweep 4.8s ease-in-out infinite !important;
   }
 }
