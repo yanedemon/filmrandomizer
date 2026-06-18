@@ -1,40 +1,26 @@
 import {
   PLACEHOLDER_POSTER,
   normalizeMovie,
-  normalizeSearchText,
 } from "./services/movieModel.js";
-import {
-  fetchCinemetaCandidates,
-  fetchMovieDetails,
-  getExpandedMovie,
-  searchMovieCandidates,
-} from "./services/movieCatalogService.js";
-import {
-  getDisplayMovies as getFilteredLibraryMovies,
-  getLibraryGenres as getLibrarySearchGenres,
-  getUniqueDirectors as getLibrarySearchDirectors,
-  getUniqueGenres as getLibrarySearchUniqueGenres,
-  getUniqueYears as getLibrarySearchYears,
-  getVisibleMovies as getLibraryVisibleMovies,
-  matchesLibraryFilters as matchesLibrarySearchFilters,
-} from "./services/librarySearchService.js";
-import {
-  findExternalRandomMovie as findRecommendedExternalRandomMovie,
-  findMatchingLocalMovie as findLocalMovieMatch,
-  getRandomMoviePool as getRecommendedMoviePool,
-  matchesRandomSettings as matchesRecommendedRandomSettings,
-  pickRandomMovieFromPool as pickRecommendedMovieFromPool,
-} from "./services/movieRecommendationService.js";
 
 const USER_STORAGE = "film-randomizer.user";
 const LEGACY_MOVIES_STORAGE = "film-randomizer.movies";
 const PAGE_SIZE = 15;
 const GLITCH_CHARS = "&^%$#@01";
+const SEARCH_DEBOUNCE_MS = 250;
+
+let librarySearchTimer = null;
+let collectionSearchTimer = null;
 
 const state = {
   user: loadUser(),
   movies: [],
+  collectionPickerMovies: [],
   collections: [],
+  libraryStats: { total: 0, watched: 0, unwatched: 0, inCollections: 0 },
+  scopeStats: { total: 0, watched: 0, unwatched: 0 },
+  libraryFilterOptions: { years: [], genres: [], directors: [] },
+  libraryTotal: 0,
   selectedCollectionId: "all",
   randomResultMovie: null,
   pendingCandidates: [],
@@ -241,26 +227,37 @@ elements.randomSettingsToggle.addEventListener("click", toggleRandomSettings);
 
 elements.pickMovie.addEventListener("click", async () => {
   state.randomResultMovie = null;
-  const pool = getRandomMoviePool("library");
-  if (!pool.length) {
-    elements.pickedMovie.innerHTML = `<span class="muted">${getRandomEmptyMessage()}</span>`;
-    elements.pickedDetails.hidden = true;
-    elements.pickedDetails.innerHTML = "";
-    return;
+  elements.pickMovie.disabled = true;
+  elements.pickedDetails.hidden = true;
+  elements.pickedDetails.innerHTML = "";
+  elements.pickedMovie.innerHTML = "<span class=\"muted\">Подбираю фильм из библиотеки...</span>";
+
+  try {
+    const result = await apiFetch("/api/discovery/random", {
+      method: "POST",
+      body: JSON.stringify(buildRandomRequest("library")),
+    });
+    state.recentLibraryRandomIds = result.recentLibraryRandomIds || state.recentLibraryRandomIds;
+    const picked = result.movie;
+    if (!picked) {
+      elements.pickedMovie.innerHTML = `<span class="muted">${getRandomEmptyMessage()}</span>`;
+      return;
+    }
+
+    elements.pickedMovie.innerHTML = `
+      <span>
+        <strong>${escapeHtml(picked.title)}</strong>
+        ${escapeHtml([picked.year, picked.rating && `${picked.rating}/10`].filter(Boolean).join(" • "))}
+      </span>
+    `;
+    elements.pickedDetails.hidden = false;
+    renderPickedDetails(picked);
+  } catch (error) {
+    elements.pickedMovie.innerHTML = "<span class=\"muted\">Не удалось подобрать фильм.</span>";
+    showMessage(error.message, true);
+  } finally {
+    elements.pickMovie.disabled = false;
   }
-
-  const picked = pickRandomMovieFromPool(pool);
-  elements.pickedMovie.innerHTML = `
-    <span>
-      <strong>${escapeHtml(picked.title)}</strong>
-      ${escapeHtml([picked.year, picked.rating && `${picked.rating}/10`].filter(Boolean).join(" • "))}
-    </span>
-  `;
-  elements.pickedDetails.hidden = false;
-  elements.pickedDetails.innerHTML = "<div class=\"picked-details-loading\">Загружаю подробности...</div>";
-
-  const expanded = await getExpandedMovie(picked);
-  renderPickedDetails(expanded);
 });
 
 elements.pickExternalMovie.addEventListener("click", pickExternalRandomMovie);
@@ -274,21 +271,19 @@ elements.pickedDetails.addEventListener("click", (event) => {
   addRandomResultMovie(button);
 });
 
-elements.includeWatchedRandom.addEventListener("change", () => {
-  render();
-});
+elements.includeWatchedRandom.addEventListener("change", renderRandomGenreSummary);
 
 elements.durationFilterEnabled.addEventListener("change", handleDurationFilterToggle);
 
 elements.durationRangeInputs.forEach((input) => {
   input.addEventListener("change", () => {
-    render();
+    renderRandomGenreSummary();
   });
 });
 
 elements.ratingRangeInputs.forEach((input) => {
   input.addEventListener("change", () => {
-    render();
+    renderRandomGenreSummary();
   });
 });
 
@@ -325,7 +320,10 @@ elements.collectionModal.addEventListener("click", (event) => {
 
 elements.collectionMovieSearch.addEventListener("input", () => {
   state.collectionSearch = elements.collectionMovieSearch.value.trim();
-  renderCollectionMoviePicker();
+  window.clearTimeout(collectionSearchTimer);
+  collectionSearchTimer = window.setTimeout(() => {
+    loadCollectionPickerMovies().catch((error) => showMessage(error.message, true));
+  }, SEARCH_DEBOUNCE_MS);
 });
 
 elements.collectionMoviePicker.addEventListener("change", (event) => {
@@ -378,15 +376,18 @@ elements.deleteCollection.addEventListener("click", async () => {
   }
 });
 
-elements.showMoreMovies.addEventListener("click", () => {
+elements.showMoreMovies.addEventListener("click", async () => {
   state.visibleMovieLimit += PAGE_SIZE;
-  renderCards();
+  await loadLibrary({ skipMigration: true });
 });
 
 elements.librarySearch.addEventListener("input", () => {
   state.librarySearch = elements.librarySearch.value.trim();
   state.visibleMovieLimit = PAGE_SIZE;
-  renderCards();
+  window.clearTimeout(librarySearchTimer);
+  librarySearchTimer = window.setTimeout(() => {
+    loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
+  }, SEARCH_DEBOUNCE_MS);
 });
 
 [
@@ -398,7 +399,7 @@ elements.librarySearch.addEventListener("input", () => {
   element.addEventListener("change", () => {
     state.libraryFilters[key] = element.value;
     state.visibleMovieLimit = PAGE_SIZE;
-    renderCards();
+    loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
   });
 });
 
@@ -421,7 +422,7 @@ elements.cardsGrid.addEventListener("change", async (event) => {
       body: JSON.stringify({ watched: event.target.checked }),
     });
     Object.assign(movie, response.movie);
-    render();
+    await loadLibrary({ skipMigration: true });
   } catch (error) {
     showMessage(error.message, true);
     event.target.checked = movie.watched;
@@ -534,6 +535,13 @@ function initApp() {
 }
 
 function logoutUser() {
+  const token = state.user?.token;
+  if (token) {
+    fetch("/api/logout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  }
   state.user = null;
   state.movies = [];
   state.collections = [];
@@ -561,13 +569,13 @@ function toggleRandomSettings() {
 
 function handleDurationFilterToggle() {
   syncRandomDurationControls();
-  render();
+  renderRandomGenreSummary();
 }
 
-function toggleWatchedVisibility() {
+async function toggleWatchedVisibility() {
   state.hideWatched = !state.hideWatched;
   state.visibleMovieLimit = PAGE_SIZE;
-  render();
+  await loadLibrary({ skipMigration: true });
   showMessage(state.hideWatched ? "Просмотренные скрыты из выдачи." : "Просмотренные снова показаны.");
 }
 
@@ -576,7 +584,7 @@ function selectCollection(collectionId, { shouldRender = true } = {}) {
   state.visibleMovieLimit = PAGE_SIZE;
   state.hideWatched = false;
   if (shouldRender) {
-    render();
+    loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
   }
 }
 
@@ -593,8 +601,8 @@ async function apiFetch(path, options = {}) {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
-  if (!options.skipAuth && state.user) {
-    headers["X-User-Id"] = String(state.user.id);
+  if (!options.skipAuth && state.user?.token) {
+    headers.Authorization = `Bearer ${state.user.token}`;
   }
 
   const response = await fetch(path, { ...options, headers });
@@ -610,24 +618,45 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-async function loadLibrary() {
+async function loadLibrary({ skipMigration = false } = {}) {
   if (!state.user) {
     return;
   }
 
-  const data = await apiFetch("/api/library");
+  const data = await apiFetch(`/api/library?${buildLibraryQuery()}`);
   state.movies = data.movies || [];
   state.collections = data.collections || [];
+  state.libraryStats = data.stats || state.libraryStats;
+  state.scopeStats = data.scopeStats || state.scopeStats;
+  state.libraryFilterOptions = data.filterOptions || state.libraryFilterOptions;
+  state.libraryTotal = data.total || 0;
   if (state.selectedCollectionId !== "all" && !getSelectedCollection()) {
     state.selectedCollectionId = "all";
   }
   renderShell();
   render();
-  await migrateLegacyMovies();
+  if (!skipMigration) {
+    await migrateLegacyMovies();
+  }
+}
+
+function buildLibraryQuery() {
+  const params = new URLSearchParams({
+    collectionId: String(state.selectedCollectionId),
+    search: state.librarySearch,
+    year: state.libraryFilters.year,
+    rating: state.libraryFilters.rating,
+    genre: state.libraryFilters.genre,
+    director: state.libraryFilters.director,
+    hideWatched: state.hideWatched ? "1" : "",
+    limit: String(state.visibleMovieLimit),
+    offset: "0",
+  });
+  return params.toString();
 }
 
 async function migrateLegacyMovies() {
-  if (state.isMigratingLegacy || state.movies.length) {
+  if (state.isMigratingLegacy || state.libraryStats.total) {
     return;
   }
 
@@ -651,10 +680,7 @@ async function migrateLegacyMovies() {
       });
     }
     localStorage.removeItem(LEGACY_MOVIES_STORAGE);
-    const data = await apiFetch("/api/library");
-    state.movies = data.movies || [];
-    state.collections = data.collections || [];
-    render();
+    await loadLibrary({ skipMigration: true });
     showMessage(`Импортировано из старого хранилища: ${legacyMovies.length}`);
   } finally {
     state.isMigratingLegacy = false;
@@ -662,10 +688,15 @@ async function migrateLegacyMovies() {
 }
 
 async function addMovieFromCandidate(candidate) {
-  const existingMovie = findMatchingLocalMovie(movieLookupFromCandidate(candidate));
-  const movie = existingMovie || await fetchMovieDetails(candidate);
-  const result = await saveMovieToLibrary(movie);
+  const result = await apiFetch("/api/movies/from-candidate", {
+    method: "POST",
+    body: JSON.stringify({
+      candidate,
+      collectionId: getSelectedCollection()?.id || "",
+    }),
+  });
   elements.titleInput.value = "";
+  await loadLibrary({ skipMigration: true });
   showMovieSaveResult(result);
 }
 
@@ -691,42 +722,15 @@ async function addRandomResultMovie(button) {
 }
 
 async function saveMovieToLibrary(movie) {
-  const activeCollection = getSelectedCollection();
-  const existingMovie = findMatchingLocalMovie(movie);
-
-  if (existingMovie) {
-    const attachment = activeCollection
-      ? await attachMovieToCollection(existingMovie.id, activeCollection)
-      : { name: "", added: false };
-    if (attachment.added) {
-      await loadLibrary();
-    }
-    return {
-      movie: existingMovie,
-      alreadyInLibrary: true,
-      collectionName: attachment.name,
-      attachedToCollection: attachment.added,
-    };
-  }
-
-  const response = await apiFetch("/api/movies", {
+  const result = await apiFetch("/api/movies", {
     method: "POST",
-    body: JSON.stringify(movie),
+    body: JSON.stringify({
+      ...movie,
+      collectionId: getSelectedCollection()?.id || "",
+    }),
   });
-  const attachment = activeCollection
-    ? await attachMovieToCollection(response.movie.id, activeCollection)
-    : { name: "", added: false };
-
-  if (!response.alreadyExists || attachment.added) {
-    await loadLibrary();
-  }
-
-  return {
-    movie: response.movie,
-    alreadyInLibrary: Boolean(response.alreadyExists),
-    collectionName: attachment.name,
-    attachedToCollection: attachment.added,
-  };
+  await loadLibrary({ skipMigration: true });
+  return result;
 }
 
 function showMovieSaveResult(result) {
@@ -749,30 +753,9 @@ function showMovieSaveResult(result) {
   showMessage(`Сохранено: ${title}`);
 }
 
-async function attachMovieToCollection(movieId, collection) {
-  const numericMovieId = Number(movieId);
-  const collectionMovieIds = new Set((collection?.movieIds || []).map(Number));
-  if (!collection || collectionMovieIds.has(numericMovieId)) {
-    return { name: collection?.name || "", added: false };
-  }
-
-  await apiFetch(`/api/collections/${collection.id}`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      name: collection.name,
-      movieIds: [...collectionMovieIds, numericMovieId],
-    }),
-  });
-  return { name: collection.name, added: true };
-}
-
-function movieLookupFromCandidate(candidate) {
-  return {
-    imdbId: candidate.imdbId,
-    title: candidate.ruTitle || candidate.title,
-    originalTitle: candidate.enTitle || candidate.title,
-    year: candidate.year,
-  };
+async function searchMovieCandidates(title) {
+  const data = await apiFetch(`/api/catalog/search?q=${encodeURIComponent(title)}`);
+  return data.candidates || [];
 }
 
 async function prepareImportFromFile(file) {
@@ -787,122 +770,13 @@ async function prepareImportFromFile(file) {
   }
 
   const text = await file.text();
-  const parsed = parseMovieImportText(text);
-  if (!parsed.titles.length) {
-    throw new Error("В файле не найдено названий фильмов.");
-  }
-  if (parsed.titles.length > 100) {
-    throw new Error("Слишком много фильмов за один раз. Ограничение: 100 названий.");
-  }
-
-  showMessage(`Ищу фильмы из файла: ${parsed.titles.length}...`);
-  const existingImdbIds = new Set(state.movies.map((movie) => movie.imdbId));
-  const rows = [];
-
-  for (const title of parsed.titles) {
-    const row = {
-      title,
-      candidates: [],
-      selectedIndex: -1,
-      status: "",
-      error: "",
-    };
-
-    try {
-      const candidates = await searchMovieCandidates(title);
-      row.candidates = candidates;
-      const availableCandidates = candidates.filter((candidate) => !existingImdbIds.has(candidate.imdbId));
-      if (!candidates.length) {
-        row.status = "not-found";
-        row.error = "Не найдено";
-      } else if (!availableCandidates.length) {
-        row.status = "duplicate";
-        row.error = "Уже есть в библиотеке";
-      } else {
-        row.selectedIndex = candidates.indexOf(bestImportCandidate(title, availableCandidates));
-        row.status = candidates.length > 1 ? "review" : "ready";
-      }
-    } catch (error) {
-      row.status = "error";
-      row.error = error.message;
-    }
-
-    rows.push(row);
-  }
-
-  state.importRows = rows;
-  openImportModal(parsed.duplicates);
-}
-
-function parseMovieImportText(text) {
-  const titles = [];
-  const duplicates = [];
-  const seen = new Set();
-  let current = "";
-  let inQuotes = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    const next = text[index + 1];
-
-    if (char === "\"" && next === "\"") {
-      current += "\"";
-      index += 1;
-      continue;
-    }
-    if (char === "\"") {
-      inQuotes = !inQuotes;
-      continue;
-    }
-    if (char === "," && !inQuotes) {
-      pushImportedTitle(current, titles, duplicates, seen);
-      current = "";
-      continue;
-    }
-    current += char;
-  }
-
-  if (inQuotes) {
-    throw new Error("В файле есть незакрытая кавычка.");
-  }
-
-  pushImportedTitle(current, titles, duplicates, seen);
-  return { titles, duplicates };
-}
-
-function pushImportedTitle(value, titles, duplicates, seen) {
-  const title = value.replace(/\s+/g, " ").trim().replace(/^["']|["']$/g, "");
-  if (!title) {
-    return;
-  }
-  const key = normalizeSearchText(title);
-  if (seen.has(key)) {
-    duplicates.push(title);
-    return;
-  }
-  seen.add(key);
-  titles.push(title);
-}
-
-function bestImportCandidate(query, candidates) {
-  return candidates
-    .map((candidate) => ({ candidate, score: scoreCandidate(query, candidate) }))
-    .sort((left, right) => right.score - left.score)[0]?.candidate || candidates[0];
-}
-
-function scoreCandidate(query, candidate) {
-  const normalizedQuery = normalizeSearchText(query);
-  const titles = [candidate.ruTitle, candidate.title, candidate.enTitle].filter(Boolean).map(normalizeSearchText);
-  if (titles.includes(normalizedQuery)) {
-    return 100;
-  }
-  if (titles.some((title) => title.startsWith(normalizedQuery) || normalizedQuery.startsWith(title))) {
-    return 75;
-  }
-  if (titles.some((title) => title.includes(normalizedQuery) || normalizedQuery.includes(title))) {
-    return 50;
-  }
-  return 10;
+  showMessage("Ищу фильмы из файла...");
+  const data = await apiFetch("/api/import/preview", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+  state.importRows = data.rows || [];
+  openImportModal(data.duplicates || []);
 }
 
 function openImportModal(duplicates = []) {
@@ -982,7 +856,6 @@ function importRowStatus(row) {
 
 async function confirmImportRows() {
   const rows = state.importRows.filter((row) => row.selectedIndex >= 0);
-  const importedImdbIds = new Set(state.movies.map((movie) => movie.imdbId));
   let added = 0;
   let skipped = 0;
 
@@ -992,26 +865,24 @@ async function confirmImportRows() {
   try {
     for (const row of rows) {
       const candidate = row.candidates[row.selectedIndex];
-      if (!candidate || importedImdbIds.has(candidate.imdbId)) {
+      if (!candidate) {
         skipped += 1;
         continue;
       }
 
-      const movie = await fetchMovieDetails(candidate);
-      const response = await apiFetch("/api/movies", {
+      const response = await apiFetch("/api/movies/from-candidate", {
         method: "POST",
-        body: JSON.stringify(movie),
+        body: JSON.stringify({ candidate }),
       });
       if (response.alreadyExists) {
         skipped += 1;
       } else {
         added += 1;
-        importedImdbIds.add(response.movie.imdbId);
       }
     }
 
     closeImportModal();
-    await loadLibrary();
+    await loadLibrary({ skipMigration: true });
     showMessage(`Импортировано: ${added}${skipped ? `, пропущено: ${skipped}` : ""}`);
   } catch (error) {
     showMessage(error.message, true);
@@ -1042,19 +913,17 @@ function render() {
   renderRandomGenreSummary();
   renderCards();
   refreshRandomResultDetails();
-  elements.clearWatched.disabled = !getVisibleMovies().some((movie) => movie.watched);
+  elements.clearWatched.disabled = !state.scopeStats.watched;
   elements.clearWatched.textContent = state.hideWatched ? "Показать просмотренные" : "Убрать просмотренные";
-  elements.pickMovie.disabled = !getRandomMoviePool("library").length;
+  elements.pickMovie.disabled = !state.scopeStats.total;
   elements.pickExternalMovie.disabled = state.isLoading;
 }
 
 function renderStats() {
-  const watched = state.movies.filter((movie) => movie.watched).length;
-  const inCollections = new Set(state.collections.flatMap((collection) => collection.movieIds)).size;
-  elements.totalCount.textContent = state.movies.length;
-  elements.watchedCount.textContent = watched;
-  elements.unwatchedCount.textContent = state.movies.length - watched;
-  elements.inCollectionsCount.textContent = inCollections;
+  elements.totalCount.textContent = state.libraryStats.total;
+  elements.watchedCount.textContent = state.libraryStats.watched;
+  elements.unwatchedCount.textContent = state.libraryStats.unwatched;
+  elements.inCollectionsCount.textContent = state.libraryStats.inCollections;
 }
 
 function renderCollections() {
@@ -1062,7 +931,7 @@ function renderCollections() {
   elements.collectionList.append(makeCollectionButton({
     id: "all",
     name: "Все фильмы",
-    count: state.movies.length,
+    count: state.libraryStats.total,
     active: state.selectedCollectionId === "all",
   }));
 
@@ -1070,7 +939,7 @@ function renderCollections() {
     elements.collectionList.append(makeCollectionButton({
       id: collection.id,
       name: collection.name,
-      count: collection.movieIds.length,
+      count: collection.movieCount ?? collection.movieIds.length,
       active: state.selectedCollectionId === collection.id,
     }));
   });
@@ -1096,6 +965,7 @@ function openCollectionModal(mode, collection = null) {
   state.editingCollectionId = collection?.id || null;
   state.collectionDraftMovieIds = new Set(collection?.movieIds || []);
   state.collectionSearch = "";
+  state.collectionPickerMovies = [];
 
   elements.collectionModalTitle.textContent = mode === "edit" ? "Настройка коллекции" : "Новая коллекция";
   elements.collectionName.value = collection?.name || "";
@@ -1103,6 +973,7 @@ function openCollectionModal(mode, collection = null) {
   elements.deleteCollection.hidden = mode !== "edit";
   elements.collectionModal.hidden = false;
   renderCollectionMoviePicker();
+  loadCollectionPickerMovies().catch((error) => showMessage(error.message, true));
   elements.collectionName.focus();
 }
 
@@ -1112,21 +983,26 @@ function closeCollectionModal() {
   state.editingCollectionId = null;
   state.collectionDraftMovieIds = new Set();
   state.collectionSearch = "";
+  state.collectionPickerMovies = [];
+}
+
+async function loadCollectionPickerMovies() {
+  if (!state.user) {
+    return;
+  }
+  const query = new URLSearchParams({ search: state.collectionSearch });
+  const data = await apiFetch(`/api/library/movie-picker?${query}`);
+  state.collectionPickerMovies = data.movies || [];
+  renderCollectionMoviePicker();
 }
 
 function renderCollectionMoviePicker() {
-  const search = normalizeSearchText(state.collectionSearch);
-  const filteredMovies = search
-    ? state.movies.filter((movie) => {
-      return [movie.title, movie.originalTitle, movie.year, movie.genre]
-        .filter(Boolean)
-        .some((value) => normalizeSearchText(value).includes(search));
-    })
-    : state.movies;
+  const search = state.collectionSearch;
+  const filteredMovies = state.collectionPickerMovies;
 
   elements.collectionMoviePicker.innerHTML = "";
 
-  if (!state.movies.length) {
+  if (!state.collectionPickerMovies.length && !search) {
     const empty = document.createElement("div");
     empty.className = "picker-empty";
     empty.textContent = "Фильмов пока нет. Коллекцию можно сохранить пустой.";
@@ -1161,24 +1037,23 @@ function renderLibraryFilterOptions() {
     return;
   }
 
-  const sourceMovies = getVisibleMovies();
   elements.librarySearch.value = state.librarySearch;
   state.libraryFilters.year = syncSelectOptions(
     elements.yearFilter,
-    getUniqueYears(sourceMovies),
+    state.libraryFilterOptions.years || [],
     "Все",
     state.libraryFilters.year,
   );
   elements.ratingFilter.value = state.libraryFilters.rating;
   state.libraryFilters.genre = syncSelectOptions(
     elements.genreFilter,
-    getUniqueGenres(sourceMovies),
+    state.libraryFilterOptions.genres || [],
     "Все",
     state.libraryFilters.genre,
   );
   state.libraryFilters.director = syncSelectOptions(
     elements.directorFilter,
-    getUniqueDirectors(sourceMovies),
+    state.libraryFilterOptions.directors || [],
     "Все",
     state.libraryFilters.director,
   );
@@ -1206,7 +1081,7 @@ function resetLibraryFilters() {
     director: "",
   };
   state.visibleMovieLimit = PAGE_SIZE;
-  render();
+  loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
 }
 
 function openRandomGenreModal() {
@@ -1223,7 +1098,7 @@ function closeRandomGenreModal() {
 function saveRandomGenres() {
   state.randomGenreFilters = new Set(state.randomGenreDraft);
   closeRandomGenreModal();
-  render();
+  renderRandomGenreSummary();
 }
 
 function renderRandomGenrePicker() {
@@ -1281,9 +1156,7 @@ function toggleSetValue(targetSet, value, isSelected) {
 }
 
 function renderCards() {
-  const visibleMovies = getDisplayMovies();
   const selected = getSelectedCollection();
-  const pageMovies = visibleMovies.slice(0, state.visibleMovieLimit);
   elements.cardsTitle.textContent = selected ? selected.name : "Все фильмы";
 
   if (!state.user) {
@@ -1292,7 +1165,7 @@ function renderCards() {
     return;
   }
 
-  if (!visibleMovies.length) {
+  if (!state.movies.length) {
     elements.cardsGrid.innerHTML = "<div class=\"empty-state\">Здесь пока нет фильмов.</div>";
     elements.showMoreMovies.hidden = true;
     return;
@@ -1301,7 +1174,7 @@ function renderCards() {
   elements.cardsGrid.innerHTML = "";
   const fragment = document.createDocumentFragment();
 
-  pageMovies.forEach((movie) => {
+  state.movies.forEach((movie) => {
     const card = elements.template.content.firstElementChild.cloneNode(true);
     card.dataset.id = movie.id;
     card.tabIndex = 0;
@@ -1323,22 +1196,19 @@ function renderCards() {
 
     card.querySelector(".year").textContent = movie.year || "год ?";
     runtime.textContent = movie.runtime || "";
-    runtime.title = movie.runtime ? `Длительность: ${movie.runtime}` : "";
     runtime.hidden = !movie.runtime;
     rating.textContent = movie.rating ? `IMDb ${movie.rating}` : "IMDb —";
-    rating.title = movie.rating ? `IMDb ${movie.rating}` : "Рейтинг не найден";
     card.querySelector(".title").textContent = movie.title;
     card.querySelector(".meta").textContent = [originalTitle, movie.genre, movie.director].filter(Boolean).join(" • ");
     const plot = card.querySelector(".plot");
     plot.textContent = movie.plot;
-    plot.title = movie.plot || "";
     card.querySelector(".watched-input").checked = movie.watched;
 
     fragment.append(card);
   });
 
   elements.cardsGrid.append(fragment);
-  const remaining = visibleMovies.length - pageMovies.length;
+  const remaining = state.libraryTotal - state.movies.length;
   elements.showMoreMovies.hidden = remaining <= 0;
   elements.showMoreMovies.textContent = remaining > 0 ? `Показать ещё ${Math.min(PAGE_SIZE, remaining)}` : "Показать ещё";
 }
@@ -1420,7 +1290,8 @@ async function openMovieDetailsModal(movie) {
   });
   elements.plotModal.hidden = false;
 
-  const expanded = await getExpandedMovie(movie);
+  const data = await apiFetch(`/api/movies/${movie.id}/details`);
+  const expanded = data.movie;
   if (!elements.plotModal.hidden && elements.plotModalBody.dataset.movieKey === movieKey) {
     elements.plotModalTitle.textContent = expanded.title || movie.title || "Фильм";
     elements.plotModalBody.innerHTML = renderMovieDetailsCard(expanded, {
@@ -1482,10 +1353,10 @@ function renderRandomResultAddAction(movie) {
 
 function getRandomResultAddAction(movie) {
   const selectedCollection = getSelectedCollection();
-  const localMatch = findMatchingLocalMovie(movie);
+  const localMovieId = Number(movie.id);
   const title = movie.title || "фильм";
 
-  if (!localMatch) {
+  if (!localMovieId) {
     return {
       label: "Добавить",
       disabled: false,
@@ -1497,7 +1368,7 @@ function getRandomResultAddAction(movie) {
 
   if (selectedCollection) {
     const collectionMovieIds = new Set(selectedCollection.movieIds.map(Number));
-    if (collectionMovieIds.has(Number(localMatch.id))) {
+    if (collectionMovieIds.has(localMovieId)) {
       return {
         label: "В коллекции",
         disabled: true,
@@ -1523,41 +1394,6 @@ function isCardControlTarget(target) {
   return Boolean(target.closest("button, input, label, select, textarea, a, .card-actions"));
 }
 
-function getVisibleMovies() {
-  return getLibraryVisibleMovies(state.movies, getSelectedCollection());
-}
-
-function getDisplayMovies() {
-  return getFilteredLibraryMovies(state.movies, {
-    selectedCollection: getSelectedCollection(),
-    hideWatched: state.hideWatched,
-    search: state.librarySearch,
-    filters: state.libraryFilters,
-  });
-}
-
-function matchesLibraryFilters(movie) {
-  return matchesLibrarySearchFilters(movie, {
-    search: state.librarySearch,
-    filters: state.libraryFilters,
-  });
-}
-
-function getRandomMoviePool(source = "library") {
-  return getRecommendedMoviePool({
-    source,
-    movies: getVisibleMovies(),
-    localMovies: state.movies,
-    settings: getRandomSelectionSettings(),
-  });
-}
-
-function pickRandomMovieFromPool(pool) {
-  const result = pickRecommendedMovieFromPool(pool, state.recentLibraryRandomIds);
-  state.recentLibraryRandomIds = result.recentIds;
-  return result.movie;
-}
-
 async function pickExternalRandomMovie() {
   const originalText = elements.pickExternalMovie.textContent;
   state.randomResultMovie = null;
@@ -1568,7 +1404,12 @@ async function pickExternalRandomMovie() {
   elements.pickedDetails.innerHTML = "";
 
   try {
-    const picked = await findExternalRandomMovie();
+    const result = await apiFetch("/api/discovery/random", {
+      method: "POST",
+      body: JSON.stringify(buildRandomRequest("external")),
+    });
+    state.recentExternalRandomKeys = result.recentExternalRandomKeys || state.recentExternalRandomKeys;
+    const picked = result.movie;
     if (!picked) {
       elements.pickedMovie.innerHTML = "<span class=\"muted\">Под эти настройки внешний каталог ничего не вернул. Попробуйте ослабить фильтры.</span>";
       return;
@@ -1593,39 +1434,17 @@ async function pickExternalRandomMovie() {
   }
 }
 
-async function findExternalRandomMovie() {
-  const result = await findRecommendedExternalRandomMovie({
-    catalog: {
-      fetchCinemetaCandidates,
-      fetchMovieDetails,
-    },
-    localMovies: state.movies,
-    recentKeys: state.recentExternalRandomKeys,
-    settings: getRandomSelectionSettings(),
-  });
-  state.recentExternalRandomKeys = result.recentKeys;
-  return result.movie;
-}
-
-function matchesRandomSettings(movie, { source = "library" } = {}) {
-  return matchesRecommendedRandomSettings(movie, {
-    source,
-    localMovies: state.movies,
-    settings: getRandomSelectionSettings(),
-  });
-}
-
-function findMatchingLocalMovie(movie) {
-  return findLocalMovieMatch(state.movies, movie);
-}
-
-function getRandomSelectionSettings() {
+function buildRandomRequest(source) {
   return {
+    source,
+    collectionId: String(state.selectedCollectionId),
     includeWatched: elements.includeWatchedRandom.checked,
     durationFilterEnabled: elements.durationFilterEnabled.checked,
     durationRange: getSelectedDurationRange(),
     ratingRange: getSelectedRatingRange(),
-    genreFilters: state.randomGenreFilters,
+    genreFilters: [...state.randomGenreFilters],
+    recentLibraryRandomIds: state.recentLibraryRandomIds,
+    recentExternalRandomKeys: state.recentExternalRandomKeys,
   };
 }
 
@@ -1661,20 +1480,8 @@ function getSelectedRatingRange() {
   return [...elements.ratingRangeInputs].find((input) => input.checked)?.value || "any";
 }
 
-function getUniqueYears(movies) {
-  return getLibrarySearchYears(movies);
-}
-
 function getLibraryGenres() {
-  return getLibrarySearchGenres(state.movies);
-}
-
-function getUniqueGenres(movies) {
-  return getLibrarySearchUniqueGenres(movies);
-}
-
-function getUniqueDirectors(movies) {
-  return getLibrarySearchDirectors(movies);
+  return state.libraryFilterOptions.genres || [];
 }
 
 function getSelectedCollection() {
@@ -1705,13 +1512,23 @@ function showAuthMessage(text, isError = false) {
 
 function loadUser() {
   try {
-    return JSON.parse(localStorage.getItem(USER_STORAGE) || "null");
+    const user = JSON.parse(localStorage.getItem(USER_STORAGE) || "null");
+    if (!user?.token) {
+      localStorage.removeItem(USER_STORAGE);
+      return null;
+    }
+    return user;
   } catch {
+    localStorage.removeItem(USER_STORAGE);
     return null;
   }
 }
 
 function saveUser() {
+  if (!state.user?.token) {
+    localStorage.removeItem(USER_STORAGE);
+    return;
+  }
   localStorage.setItem(USER_STORAGE, JSON.stringify(state.user));
 }
 

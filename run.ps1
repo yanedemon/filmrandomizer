@@ -1,5 +1,11 @@
 $ErrorActionPreference = "Stop"
 
+$venvPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+if (Test-Path $venvPython) {
+  & $venvPython server.py serve
+  exit $LASTEXITCODE
+}
+
 $python = Get-Command python -ErrorAction SilentlyContinue
 if ($python) {
   & $python.Source server.py serve
