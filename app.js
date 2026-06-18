@@ -1305,10 +1305,10 @@ function renderSearchResults(candidates) {
       candidate.cast,
       candidate.genre,
     ].filter(Boolean).join(" • ");
-    details.textContent = detailText ? `(${detailText})` : "";
+    details.textContent = detailText;
 
-    heading.append(main, tags);
-    option.append(heading, details);
+    heading.append(main, details, tags);
+    option.append(heading);
     list.append(option);
   });
 
