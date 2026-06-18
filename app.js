@@ -1268,15 +1268,29 @@ function renderSearchResults(candidates) {
     main.className = "candidate-main";
     main.textContent = candidate.ruTitle || candidate.title || "Без названия";
 
+    const tags = document.createElement("span");
+    tags.className = "candidate-tags";
+    [
+      candidate.year,
+      candidate.runtime,
+      candidate.rating ? `IMDb ${candidate.rating}` : "",
+    ].filter(Boolean).forEach((value) => {
+      const tag = document.createElement("span");
+      tag.className = "candidate-tag";
+      tag.textContent = value;
+      tags.append(tag);
+    });
+
     const details = document.createElement("span");
     details.className = "candidate-details";
-    details.textContent = [
-      candidate.enTitle && candidate.enTitle !== candidate.ruTitle ? candidate.enTitle : "",
-      candidate.year,
-      candidate.ruDescription,
+    const detailText = [
+      candidate.director,
+      candidate.cast,
+      candidate.genre,
     ].filter(Boolean).join(" • ");
+    details.textContent = detailText ? `(${detailText})` : "";
 
-    option.append(main, details);
+    option.append(main, tags, details);
     list.append(option);
   });
 

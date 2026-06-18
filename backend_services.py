@@ -309,11 +309,28 @@ def score_candidate(query, candidate):
     return 10
 
 
-def search_movie_candidates(title, limit=8):
+def search_movie_candidates(title, limit=8, enrich_details=False):
     wikidata_candidates = try_value(lambda: fetch_wikidata_candidates(title), [])
     candidates = wikidata_candidates if wikidata_candidates else fetch_cinemeta_candidates(title)
     ranked = sorted(candidates, key=lambda candidate: score_candidate(title, candidate), reverse=True)
-    return ranked[:max(1, safe_int(limit, 8))]
+    limited = ranked[:max(1, safe_int(limit, 8))]
+    if enrich_details:
+        return [enrich_search_candidate(candidate) for candidate in limited]
+    return limited
+
+
+def enrich_search_candidate(candidate):
+    details = try_value(lambda: fetch_cinemeta_details_by_id(candidate.get("imdbId")), {}) if candidate.get("imdbId") else {}
+    return {
+        **candidate,
+        "year": candidate.get("year") or details.get("year"),
+        "poster": candidate.get("poster") or details.get("poster"),
+        "rating": details.get("rating") or candidate.get("rating"),
+        "runtime": details.get("runtime") or candidate.get("runtime"),
+        "genre": details.get("genre") or candidate.get("genre"),
+        "director": details.get("director") or candidate.get("director"),
+        "cast": details.get("cast") or candidate.get("cast"),
+    }
 
 
 def fetch_movie_details(candidate):

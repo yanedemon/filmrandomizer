@@ -756,12 +756,12 @@ class Handler(SimpleHTTPRequestHandler):
     def handle_catalog_search(self, parsed):
         params = read_query(parsed)
         query = params.get("q", "").strip()
-        limit = min(12, max(1, parse_optional_int(params.get("limit")) or 8))
+        limit = min(5, max(1, parse_optional_int(params.get("limit")) or 5))
         if not query:
             self.send_json(*json_error("Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ С„РёР»СЊРјР°."))
             return
         try:
-            self.send_json(200, {"candidates": search_movie_candidates(query, limit=limit)})
+            self.send_json(200, {"candidates": search_movie_candidates(query, limit=limit, enrich_details=True)})
         except Exception as error:
             self.send_json(*json_error(str(error)))
 

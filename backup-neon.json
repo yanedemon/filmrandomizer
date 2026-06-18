@@ -1,0 +1,770 @@
+{
+  "version": 1,
+  "exportedAt": 1781770440,
+  "tables": {
+    "users": [
+      {
+        "id": 1,
+        "username": "dem139@mail.ru",
+        "password_hash": "pbkdf2_sha256$260000$2b0c6ffc36bb091d39c958d31656c2c6$34a87480eff73f317bf918e78ad04a86893cc2211c76174a4f21dee05a8c2149",
+        "created_at": 1781508063
+      }
+    ],
+    "movies": [
+      {
+        "id": 1,
+        "user_id": 1,
+        "imdb_id": "tt0099685",
+        "title": "Славные парни",
+        "original_title": "Goodfellas",
+        "year": "1990",
+        "poster": "https://images.metahub.space/poster/small/tt0099685/img",
+        "rating": "8.7",
+        "runtime": "145 min",
+        "genre": "Biography, Crime, Drama",
+        "director": "Martin Scorsese",
+        "plot": "«Славные парни» — американский художественный фильм в жанре криминальной драмы режиссёра Мартина Скорсезе, премьера которого состоялась в 1990 году. Фильм основан на реальных событиях. Главные роли исполнили Роберт Де Ниро в образе Джимми Конвэя и Рэй Лиотта в образе Генри Хилла. Экранизация романа Николаса Пиледжи «Умник».",
+        "watched": 0,
+        "created_at": 1781508125,
+        "cast": null
+      },
+      {
+        "id": 3,
+        "user_id": 1,
+        "imdb_id": "tt0418279",
+        "title": "Transformers",
+        "original_title": "Transformers",
+        "year": "2007",
+        "poster": "https://images.metahub.space/poster/small/tt0418279/img",
+        "rating": "7.1",
+        "runtime": "144 min",
+        "genre": "Action, Adventure, Sci-Fi",
+        "director": "Michael Bay",
+        "plot": "Cinemeta",
+        "watched": 0,
+        "created_at": 1781508181,
+        "cast": null
+      },
+      {
+        "id": 4,
+        "user_id": 1,
+        "imdb_id": "tt0167260",
+        "title": "Властелин колец: Возвращение короля",
+        "original_title": "The Lord of the Rings: The Return of the King",
+        "year": "2003",
+        "poster": "https://images.metahub.space/poster/small/tt0167260/img",
+        "rating": "9.0",
+        "runtime": "201 min",
+        "genre": "Adventure, Drama, Fantasy",
+        "director": "Peter Jackson",
+        "plot": "«Властели́н коле́ц: Возвраще́ние короля́» — кинокартина 2003 года, третья и заключительная часть кинотрилогии, снятой Питером Джексоном по роману Дж. Р. Р. Толкина «Властелин колец». Мировая премьера состоялась 1 декабря 2003 года в Новой Зеландии.",
+        "watched": 0,
+        "created_at": 1781508215,
+        "cast": null
+      },
+      {
+        "id": 5,
+        "user_id": 1,
+        "imdb_id": "tt0167261",
+        "title": "Властелин колец: Две крепости",
+        "original_title": "The Lord of the Rings: The Two Towers",
+        "year": "2002",
+        "poster": "https://images.metahub.space/poster/small/tt0167261/img",
+        "rating": "8.8",
+        "runtime": "179 min",
+        "genre": "Adventure, Drama, Fantasy",
+        "director": "Peter Jackson",
+        "plot": "«Властели́н коле́ц: Две кре́пости» — приключенческий фильм в жанре эпического фэнтези 2002 года режиссёра Питера Джексона по сценарию Фрэн Уолш, Филиппы Бойенс, Стивена Синклера и самого Джексона, основанный на втором томе романа «Властелин колец» Дж. Р. Р. Толкина «Две крепости».",
+        "watched": 0,
+        "created_at": 1781508258,
+        "cast": null
+      },
+      {
+        "id": 6,
+        "user_id": 1,
+        "imdb_id": "tt0120737",
+        "title": "Властелин колец: Братство Кольца",
+        "original_title": "The Lord of the Rings: The Fellowship of the Ring",
+        "year": "2001",
+        "poster": "https://images.metahub.space/poster/small/tt0120737/img",
+        "rating": "8.9",
+        "runtime": "179 min",
+        "genre": "Adventure, Drama, Fantasy",
+        "director": "Peter Jackson",
+        "plot": "«Властели́н коле́ц: Бра́тство Кольца́» — приключенческий фильм в жанре эпического фэнтези 2001 года режиссёра Питера Джексона по сценарию Фрэнсис Уолш, Филиппы Бойенс и самого Джексона, основанный на первой части романа «Властелин колец» Дж. Р. Р. Толкина «Братство Кольца». Первый фильм трилогии «Властелин колец».",
+        "watched": 0,
+        "created_at": 1781508272,
+        "cast": null
+      },
+      {
+        "id": 7,
+        "user_id": 1,
+        "imdb_id": "tt0251736",
+        "title": "Дом 1000 трупов",
+        "original_title": "House of 1000 Corpses",
+        "year": "2003",
+        "poster": "https://images.metahub.space/poster/small/tt0251736/img",
+        "rating": "6.0",
+        "runtime": "89 min",
+        "genre": "Horror",
+        "director": "Rob Zombie",
+        "plot": "«Дом 1000 трупов» — американский фильм 2003 года, режиссёрский дебют Роба Зомби, созданный в традиционной стилистике фильмов ужасов с добавлением элементов чёрной комедии и даже научной фантастики. Премьера фильма состоялась 13 марта 2003 года. В США фильм собрал $12 634 962, в других странах $4 194 583, что в общей сложности составило $16 829 545.",
+        "watched": 0,
+        "created_at": 1781508284,
+        "cast": null
+      },
+      {
+        "id": 8,
+        "user_id": 1,
+        "imdb_id": "tt0078748",
+        "title": "Чужой",
+        "original_title": "Alien",
+        "year": "1979",
+        "poster": "https://images.metahub.space/poster/small/tt0078748/img",
+        "rating": "8.5",
+        "runtime": "117 min",
+        "genre": "Horror, Sci-Fi",
+        "director": "Ridley Scott",
+        "plot": "«Чужой» — научно-фантастический фильм ужасов, 1979 года режиссёра Ридли Скотта. Название отсылает к главному антагонисту картины — Чужому, агрессивному инопланетному существу, которое выслеживает и убивает экипаж космического корабля. Премьера фильма в США состоялась 25 мая 1979 года.",
+        "watched": 0,
+        "created_at": 1781508294,
+        "cast": null
+      },
+      {
+        "id": 9,
+        "user_id": 1,
+        "imdb_id": "tt0090605",
+        "title": "Чужие",
+        "original_title": "Aliens",
+        "year": "1986",
+        "poster": "https://images.metahub.space/poster/small/tt0090605/img",
+        "rating": "8.4",
+        "runtime": "137 min",
+        "genre": "Action, Adventure, Horror",
+        "director": "James Cameron",
+        "plot": "«Чужи́е» — научно-фантастический боевик 1986 года, режиссёра и сценариста Джеймса Кэмерона. Это продолжение фильма «Чужой» и второй фильм франшизы «Чужой». Главную роль исполнила Сигурни Уивер. Действие происходит в далёком будущем, фильм рассказывает об Эллен Рипли, единственной выжившей после нападения чужого на её корабль. Когда связь с человеческой колонией на Луне, где её экипаж впервые столкнулся с чужими, обрывается, Рипли соглашается вернуться на место с подразделением колониальных морских пехотинцев для расследования. Майкл Бин, Пол Райзер, Лэнс Хенриксен и Кэрри Хенн сыграли второстепенные роли.",
+        "watched": 0,
+        "created_at": 1781508304,
+        "cast": null
+      },
+      {
+        "id": 10,
+        "user_id": 1,
+        "imdb_id": "tt0071562",
+        "title": "Крёстный отец 2",
+        "original_title": "The Godfather Part II",
+        "year": "1974",
+        "poster": "https://images.metahub.space/poster/small/tt0071562/img",
+        "rating": "9.0",
+        "runtime": "202 min",
+        "genre": "Crime, Drama",
+        "director": "Francis Ford Coppola",
+        "plot": "«Крёстный оте́ц 2» — американский эпический криминальный драматический фильм 1974 года режиссёра Фрэнсиса Форда Копполы, частично основанный на романе Марио Пьюзо «Крёстный отец». Пьюзо был сосценаристом с Копполой. Это как продолжение, так и приквел к фильму «Крёстный отец», представляющие параллельные драмы: историю Майкла Корлеоне, нового дона семьи Корлеоне, защищающего семейный бизнес после покушения на его жизнь; приквел охватывает путешествие его отца, Вито Корлеоне, от его сицилийского детства до основания его семейного предприятия в Нью-Йорке. В актёрский состав также входят Роберт Дюваль, Дайан Китон, Талия Шайр, Моргана Кинг, Джон Казале, Марианна Хилл, Ли Страсберг.",
+        "watched": 0,
+        "created_at": 1781508357,
+        "cast": null
+      },
+      {
+        "id": 11,
+        "user_id": 1,
+        "imdb_id": "tt0068646",
+        "title": "Крёстный отец",
+        "original_title": "The Godfather",
+        "year": "1972",
+        "poster": "https://images.metahub.space/poster/small/tt0068646/img",
+        "rating": "9.2",
+        "runtime": "175 min",
+        "genre": "Crime, Drama",
+        "director": "Francis Ford Coppola",
+        "plot": "«Крёстный оте́ц» — американский эпический гангстерский драматический фильм 1972 года режиссёра Фрэнсиса Форда Копполы, который был соавтором сценария с Марио Пьюзо, основанный на одноимённом романе Пьюзо. В главных ролях Марлон Брандо, Аль Пачино, Джеймс Каан, Ричард Кастеллано, Роберт Дюваль, Стерлинг Хэйден, Джон Марли, Ричард Конте и Дайан Китон. Это первый фильм одноимённой трилогии, в которой рассказывается о семье Корлеоне при патриархе Вито Корлеоне с 1945 по 1955 год. Он фокусируется на превращении его младшего сына, Майкла Корлеоне, отдалившегося от дел семьи, в безжалостного мафиозного босса.",
+        "watched": 0,
+        "created_at": 1781508371,
+        "cast": null
+      },
+      {
+        "id": 12,
+        "user_id": 1,
+        "imdb_id": "tt0356150",
+        "title": "Евротур",
+        "original_title": "EuroTrip",
+        "year": "2004",
+        "poster": "https://images.metahub.space/poster/small/tt0356150/img",
+        "rating": "6.6",
+        "runtime": "92 min",
+        "genre": "Comedy",
+        "director": "Jeff Schaffer, Alec Berg, David Mandel",
+        "plot": "«Евроту́р» — американская молодёжная приключенческая комедия 2004 года.",
+        "watched": 0,
+        "created_at": 1781508479,
+        "cast": null
+      },
+      {
+        "id": 13,
+        "user_id": 1,
+        "imdb_id": "tt0172495",
+        "title": "Гладиатор",
+        "original_title": "Gladiator",
+        "year": "2000",
+        "poster": "https://images.metahub.space/poster/small/tt0172495/img",
+        "rating": "8.5",
+        "runtime": "155 min",
+        "genre": "Action, Adventure, Drama",
+        "director": "Ridley Scott",
+        "plot": "«Гладиатор» — художественный фильм в жанре исторической драмы, поставленный режиссёром Ридли Скоттом по сценарию Дэвида Францони, Джона Логана и Уильяма Николсона. В главных ролях снялись Рассел Кроу, Хоакин Феникс, Конни Нильсен, Томас Арана, Ральф Мёллер, Оливер Рид, Джимон Хонсу, Дерек Джекоби, Джон Шрапнел, Ричард Харрис и Томми Флэнаган. Рассел Кроу в роли римского полководца Максимуса Децима Меридиуса, которого предают, когда Коммод, амбициозный сын императора Марка Аврелия, убивает своего отца и захватывает трон. Обращённый в рабство, Максимус становится гладиатором и поднимается по служебной лестнице на арене, чтобы отомстить за убийства своей семьи и своего императора.",
+        "watched": 0,
+        "created_at": 1781508491,
+        "cast": null
+      },
+      {
+        "id": 15,
+        "user_id": 1,
+        "imdb_id": "tt0072890",
+        "title": "Собачий полдень",
+        "original_title": "Dog Day Afternoon",
+        "year": "1975",
+        "poster": "https://images.metahub.space/poster/small/tt0072890/img",
+        "rating": "8.0",
+        "runtime": "125 min",
+        "genre": "Biography, Crime, Drama",
+        "director": "Sidney Lumet",
+        "plot": "«Собачий полдень» — американская криминальная драма, снятая режиссёром Сидни Люметом по сценарию Фрэнка Пирсона. Главные роли в фильме исполняют Аль Пачино, Джон Казале, Чарльз Дёрнинг, Крис Сарандон, Пенелопа Аллен, Джеймс Бродерик, Лэнс Хенриксен и Кэрол Кейн. Название фильма соответствует идиоме, означающей «жаркие летние дни».",
+        "watched": 0,
+        "created_at": 1781508514,
+        "cast": null
+      },
+      {
+        "id": 16,
+        "user_id": 1,
+        "imdb_id": "tt0132910",
+        "title": "Ворон 3: Спасение",
+        "original_title": "The Crow: Salvation",
+        "year": "2000",
+        "poster": "https://images.metahub.space/poster/small/tt0132910/img",
+        "rating": "4.9",
+        "runtime": "101 min",
+        "genre": "Action, Crime, Fantasy",
+        "director": "Bharat Nalluri",
+        "plot": "«Ворон 3: Спасение» — американский супергеройский фильм, поставленный режиссёром Бхаратом Наллури в жанре мистического триллера по комиксам о Вороне Джеймса О’Барра. В главной роли снялся Эрик Мабиус. «Ворон 3: Спасение» является третьей частью серии фильмов Ворон и самостоятельным продолжением второго фильма. После того, как дистрибьютор отменил предполагаемый широкий кинотеатральный релиз, картина вышла на ТВ и DVD из-за коммерческого и критического провала предыдущего фильма, а также из-за плохих тестовых показов.",
+        "watched": 0,
+        "created_at": 1781508570,
+        "cast": null
+      },
+      {
+        "id": 17,
+        "user_id": 1,
+        "imdb_id": "tt0066999",
+        "title": "Грязный Гарри",
+        "original_title": "Dirty Harry",
+        "year": "1971",
+        "poster": "https://images.metahub.space/poster/small/tt0066999/img",
+        "rating": "7.7",
+        "runtime": "102 min",
+        "genre": "Action, Crime, Thriller",
+        "director": "Don Siegel, Clint Eastwood",
+        "plot": "«Грязный Гарри» — американский художественный фильм с Клинтом Иствудом в главной роли, поставленный режиссёром Доном Сигелом и выпущенный на экраны США в году. Он определил облик жанра на десятилетие вперёд и породил четыре сиквела.",
+        "watched": 0,
+        "created_at": 1781508586,
+        "cast": null
+      },
+      {
+        "id": 18,
+        "user_id": 1,
+        "imdb_id": "tt0097733",
+        "title": "Смертельное оружие 2",
+        "original_title": "Lethal Weapon 2",
+        "year": "1989",
+        "poster": "https://images.metahub.space/poster/small/tt0097733/img",
+        "rating": "7.3",
+        "runtime": "114 min",
+        "genre": "Action, Crime, Thriller",
+        "director": "Richard Donner",
+        "plot": "«Смертельное оружие 2» — художественный фильм Ричарда Доннера, снятый в США в 1989 году.",
+        "watched": 0,
+        "created_at": 1781508596,
+        "cast": null
+      },
+      {
+        "id": 19,
+        "user_id": 1,
+        "imdb_id": "tt0093409",
+        "title": "Смертельное оружие",
+        "original_title": "Lethal Weapon",
+        "year": "1987",
+        "poster": "https://images.metahub.space/poster/small/tt0093409/img",
+        "rating": "7.6",
+        "runtime": "110 min",
+        "genre": "Action, Crime, Thriller",
+        "director": "Richard Donner",
+        "plot": "«Смертельное оружие» — боевик режиссёра Ричарда Доннера, по сценарию Шейна Блэка, снятый в США в 1987 году. Номинация на премию «Оскар» в категории «Лучший звук» (1988). Картина положила начало успешной серии «Смертельное оружие» и стала одним из наиболее известных боевиков 1980-х годов.",
+        "watched": 0,
+        "created_at": 1781508604,
+        "cast": null
+      },
+      {
+        "id": 20,
+        "user_id": 1,
+        "imdb_id": "tt0443453",
+        "title": "Борат",
+        "original_title": "Borat",
+        "year": "2006",
+        "poster": "https://images.metahub.space/poster/small/tt0443453/img",
+        "rating": "7.4",
+        "runtime": "84 min",
+        "genre": "Comedy",
+        "director": "Larry Charles",
+        "plot": "«Борат: изучение американской культуры на благо славного народа Казахстана» — британо-американская псевдодокументальная кинокомедия режиссёра Ларри Чарльза с английским комиком Сашей Бароном Коэном в главной роли, который также является соавтором сценария и одним из продюсеров фильма. Главной фигурой картины выступает сыгранный Коэном персонаж Борат Сагдиев — казахстанский журналист, путешествующий по США и встречающийся с разными людьми. «Борат» стал вторым фильмом, снятым на основе персонажей сатирической телевизионной передачи Коэна «Шоу Али Джи».",
+        "watched": 0,
+        "created_at": 1781508626,
+        "cast": null
+      },
+      {
+        "id": 21,
+        "user_id": 1,
+        "imdb_id": "tt1205489",
+        "title": "Gran Torino",
+        "original_title": "Gran Torino",
+        "year": "2008",
+        "poster": "https://images.metahub.space/poster/small/tt1205489/img",
+        "rating": "8.1",
+        "runtime": "116 min",
+        "genre": "Drama",
+        "director": "Clint Eastwood",
+        "plot": "Cinemeta",
+        "watched": 0,
+        "created_at": 1781508632,
+        "cast": null
+      },
+      {
+        "id": 22,
+        "user_id": 1,
+        "imdb_id": "tt0091763",
+        "title": "Взвод",
+        "original_title": "Platoon",
+        "year": "1986",
+        "poster": "https://images.metahub.space/poster/small/tt0091763/img",
+        "rating": "8.1",
+        "runtime": "120 min",
+        "genre": "Drama, War",
+        "director": "Oliver Stone",
+        "plot": "«Взвод» — американский военный фильм 1986 года режиссера Оливера Стоуна. В главных ролях снялись Том Беренджер, Уиллем Дефо и Чарли Шин. Роли второго плана сыграли Кит Дэвид, Кевин Диллон, Джон К. Макгинли, Форест Уитакер, Мозес, Марк и Джонни Депп. Это первый фильм из трилогии фильмов о войне во Вьетнаме режиссера Стоуна, за которым следуют «Рождённый четвёртого июля» (1989) и «Небо и земля» (1993). Фильм, основанный на военном опыте Стоуна, рассказывает о новом добровольце армии США (Шин), служащем во Вьетнаме, в то время как сержант его взвода и командир отделения спорят о морали во взводе и о самой войне.",
+        "watched": 0,
+        "created_at": 1781510247,
+        "cast": null
+      },
+      {
+        "id": 23,
+        "user_id": 1,
+        "imdb_id": "tt0820096",
+        "title": "Изображая жертву",
+        "original_title": "Playing the Victim",
+        "year": "2006",
+        "poster": "https://images.metahub.space/poster/small/tt0820096/img",
+        "rating": "7.1",
+        "runtime": "97 min",
+        "genre": "Comedy",
+        "director": "Kirill Serebrennikov",
+        "plot": "«Изобража́я же́ртву» — российская чёрная комедия режиссёра Кирилла Серебренникова, снятая по одноимённой пьесе братьев Пресняковых. Главную роль исполняет Юрий Чурсин. Четыре номинации на премию «Золотой орёл», пять номинаций на премию «Ника», включая победу за лучшую женскую роль второго плана.",
+        "watched": 0,
+        "created_at": 1781510252,
+        "cast": null
+      },
+      {
+        "id": 24,
+        "user_id": 1,
+        "imdb_id": "tt1540133",
+        "title": "Однажды в Ирландии",
+        "original_title": "The Guard",
+        "year": "2011",
+        "poster": "https://images.metahub.space/poster/small/tt1540133/img",
+        "rating": "7.3",
+        "runtime": "96 min",
+        "genre": "Comedy, Crime, Thriller",
+        "director": "John Michael McDonagh",
+        "plot": "«Однажды в Ирландии» — чёрная трагикомедия, снятая кинорежиссёром и сценаристом Джоном Майклом Макдонахом с Бренданом Глисоном и Доном Чидлом в главных ролях. Мировая премьера фильма состоялась 20 января 2011 года на 27-м кинофестивале «Сандэнс». В России фильм вышел 24 ноября 2011 года. Картина быстро получила известность, став в момент выхода самым коммерчески успешным ирландским фильмом с кассовыми сборами в 5 359 774 долларов, превзойдя «Ветер, который качает вереск» (2006).",
+        "watched": 1,
+        "created_at": 1781510275,
+        "cast": null
+      },
+      {
+        "id": 25,
+        "user_id": 1,
+        "imdb_id": "tt0112817",
+        "title": "Мертвец",
+        "original_title": "Dead Man",
+        "year": "1995",
+        "poster": "https://images.metahub.space/poster/small/tt0112817/img",
+        "rating": "7.5",
+        "runtime": "122 min",
+        "genre": "Adventure, Drama, Western",
+        "director": "Jim Jarmusch",
+        "plot": "«Мертве́ц» — фильм независимого американского режиссёра Джима Джармуша (1995), повествующий о мистическом путешествии скромного бухгалтера Уильяма Блейка, ведомого по Дикому Западу к Тихому океану индейцем по имени Никто. В ходе своего путешествия главные герои проделывают долгий путь от инфернального города эпохи промышленной революции сквозь зеркальные воды реки забвения к покинутому жителями культовому центру вымирающего племени индейцев.",
+        "watched": 0,
+        "created_at": 1781510934,
+        "cast": "Johnny Depp, Gary Farmer, Crispin Glover"
+      },
+      {
+        "id": 28,
+        "user_id": 1,
+        "imdb_id": "tt0320661",
+        "title": "Царство небесное",
+        "original_title": "Kingdom of Heaven",
+        "year": "2005",
+        "poster": "https://images.metahub.space/poster/small/tt0320661/img",
+        "rating": "7.3",
+        "runtime": "144 min",
+        "genre": "Action, Adventure, Drama",
+        "director": "Ridley Scott",
+        "plot": "«Ца́рство небе́сное» — американская эпическая историческая драма 2005 года, пятнадцатый полнометражный фильм режиссёра Ридли Скотта по сценарию Уильяма Монахана. Главные роли исполнили Орландо Блум, Ева Грин, Гассан Масуд, Джереми Айронс, Дэвид Тьюлис, Брендан Глисон, Эдвард Нортон, Мартон Чокаш и Лиам Нисон. Фильм представляет собой сильно беллетризованное изображение событий, приведших к Третьему крестовому походу, в котором основное внимание уделяется Балиану из Ибелина, который сражается за защиту Иерусалимского королевства крестоносцев от султана Айюбидов Саладина.",
+        "watched": 1,
+        "created_at": 1781511397,
+        "cast": "Orlando Bloom, Eva Green, Liam Neeson"
+      },
+      {
+        "id": 29,
+        "user_id": 1,
+        "imdb_id": "tt0238883",
+        "title": "Брат 2",
+        "original_title": "Brother 2",
+        "year": "2000",
+        "poster": "https://images.metahub.space/poster/small/tt0238883/img",
+        "rating": "7.6",
+        "runtime": "122 min",
+        "genre": "Action, Crime, Drama",
+        "director": "Aleksey Balabanov",
+        "plot": "«Брат 2» — российская криминальная драма производства компании «СТВ», вышедшая в 2000 году. Продолжение фильма «Брат», вышедшего тремя годами ранее. Режиссёр и автор сценария — Алексей Балабанов. В главной роли — Сергей Бодров-младший.",
+        "watched": 1,
+        "created_at": 1781511413,
+        "cast": "Sergey Bodrov, Viktor Sukhorukov, Sergey Makovetskiy"
+      },
+      {
+        "id": 30,
+        "user_id": 1,
+        "imdb_id": "tt0122933",
+        "title": "Анализируй это",
+        "original_title": "Analyze This",
+        "year": "1999",
+        "poster": "https://images.metahub.space/poster/small/tt0122933/img",
+        "rating": "6.7",
+        "runtime": "103 min",
+        "genre": "Comedy, Crime",
+        "director": "Harold Ramis",
+        "plot": "«Анализируй это» — американская комедия режиссёра Гарольда Рамиса",
+        "watched": 1,
+        "created_at": 1781511421,
+        "cast": "Robert De Niro, Billy Crystal, Lisa Kudrow"
+      },
+      {
+        "id": 31,
+        "user_id": 1,
+        "imdb_id": "tt0425112",
+        "title": "Типа крутые легавые",
+        "original_title": "Hot Fuzz",
+        "year": "2007",
+        "poster": "https://images.metahub.space/poster/small/tt0425112/img",
+        "rating": "7.8",
+        "runtime": "121 min",
+        "genre": "Action, Comedy, Mystery",
+        "director": "Edgar Wright",
+        "plot": "«Типа крутые легавые» — британский комедийный боевик 2007 года режиссёра Эдгара Райта. В главных ролях снялись Саймон Пегг и Ник Фрост. До этого они вместе работали над фильмом «Зомби по имени Шон» и телесериалом «Долбанутые». Фильм является также пародией на некоторые детективные фильмы прошлых лет. Второй фильм из трилогии «Кровь и мороженое».",
+        "watched": 0,
+        "created_at": 1781513962,
+        "cast": "Simon Pegg, Nick Frost, Martin Freeman"
+      },
+      {
+        "id": 32,
+        "user_id": 1,
+        "imdb_id": "tt2024469",
+        "title": "Воздушный маршал",
+        "original_title": "Non-Stop",
+        "year": "2014",
+        "poster": "https://images.metahub.space/poster/small/tt2024469/img",
+        "rating": "6.9",
+        "runtime": "107 min",
+        "genre": "Action, Mystery, Thriller",
+        "director": "Jaume Collet-Serra",
+        "plot": "«Воздушный маршал» — детективный триллер режиссёра Жауме Кольет-Серры, в главных ролях Лиам Нисон и Джулианна Мур.",
+        "watched": 0,
+        "created_at": 1781514005,
+        "cast": "Liam Neeson, Julianne Moore, Scoot McNairy"
+      },
+      {
+        "id": 33,
+        "user_id": 1,
+        "imdb_id": "tt0936501",
+        "title": "Заложница",
+        "original_title": "Taken",
+        "year": "2008",
+        "poster": "https://images.metahub.space/poster/small/tt0936501/img",
+        "rating": "7.7",
+        "runtime": "94 min",
+        "genre": "Action, Crime, Thriller",
+        "director": "Pierre Morel",
+        "plot": "«Заложница» — остросюжетный боевик режиссёра Пьера Мореля. Мировая премьера состоялась 27 февраля 2008 года. Фильм дал старт одноимённой кинофраншизе, включающей в себя трилогию фильмов и телесериал. Номинант на премию «Сатурн» за 2010 год в номинации «Лучший фильм на иностранном языке».",
+        "watched": 0,
+        "created_at": 1781514014,
+        "cast": "Liam Neeson, Maggie Grace, Famke Janssen"
+      },
+      {
+        "id": 34,
+        "user_id": 1,
+        "imdb_id": "tt0100802",
+        "title": "Total Recall",
+        "original_title": "Total Recall",
+        "year": "1990",
+        "poster": "https://images.metahub.space/poster/small/tt0100802/img",
+        "rating": "7.5",
+        "runtime": "113 min",
+        "genre": "Action, Adventure, Sci-Fi",
+        "director": "Paul Verhoeven",
+        "plot": "Cinemeta",
+        "watched": 0,
+        "created_at": 1781514023,
+        "cast": "Arnold Schwarzenegger, Sharon Stone, Michael Ironside"
+      },
+      {
+        "id": 36,
+        "user_id": 1,
+        "imdb_id": "tt1213663",
+        "title": "The World's End",
+        "original_title": "The World's End",
+        "year": "2013",
+        "poster": "https://images.metahub.space/poster/small/tt1213663/img",
+        "rating": "6.9",
+        "runtime": "109 min",
+        "genre": "Action, Comedy, Sci-Fi",
+        "director": "Edgar Wright",
+        "plot": "Cinemeta",
+        "watched": 0,
+        "created_at": 1781615687,
+        "cast": "Simon Pegg, Nick Frost, Martin Freeman"
+      },
+      {
+        "id": 37,
+        "user_id": 1,
+        "imdb_id": "tt0181689",
+        "title": "Особое мнение",
+        "original_title": "Minority Report",
+        "year": "2002",
+        "poster": "https://images.metahub.space/poster/small/tt0181689/img",
+        "rating": "7.6",
+        "runtime": "145 min",
+        "genre": "Action, Crime, Mystery",
+        "director": "Steven Spielberg",
+        "plot": "«Особое мнение» — американский научно-фантастический боевик 2002 года режиссёра Стивена Спилберга по мотивам одноимённого рассказа (1956) писателя Филипа Киндреда Дика. Сюжет разворачивается в США в 2054 году. Специализированное полицейское управление по профилактике и предотвращению преступлений Precrime задерживает потенциальных преступников, используя данные специально подготовленных экстрасенсов, называемыми «провидцами».",
+        "watched": 0,
+        "created_at": 1781615856,
+        "cast": "Tom Cruise, Colin Farrell, Samantha Morton"
+      },
+      {
+        "id": 38,
+        "user_id": 1,
+        "imdb_id": "tt0112641",
+        "title": "Казино́",
+        "original_title": "Casino",
+        "year": "1995",
+        "poster": "https://images.metahub.space/poster/small/tt0112641/img",
+        "rating": "8.2",
+        "runtime": "179 min",
+        "genre": "Crime, Drama",
+        "director": "Martin Scorsese",
+        "plot": "«Казино» — эпическая криминальная драма 1995 года, пятнадцатый полнометражный фильм режиссёра Мартина Скорсезе, экранизированная Скорсезе и Николасом Пиледжи по научно-популярной книге последнего Казино: любовь и честь в Лас-Вегасе. В главных ролях снимались Роберт Де Ниро, Шэрон Стоун, Джо Пеши, Дон Риклс, Кевин Поллак и Джеймс Вудс. Фильм стал восьмой совместной работой режиссёра Скорсезе и Де Ниро.",
+        "watched": 1,
+        "created_at": 1781617082,
+        "cast": "Robert De Niro, Sharon Stone, Joe Pesci"
+      },
+      {
+        "id": 39,
+        "user_id": 1,
+        "imdb_id": "tt0175142",
+        "title": "Scary Movie",
+        "original_title": "Scary Movie",
+        "year": "2000",
+        "poster": "https://images.metahub.space/poster/small/tt0175142/img",
+        "rating": "6.3",
+        "runtime": "88 min",
+        "genre": "Comedy",
+        "director": "Keenen Ivory Wayans",
+        "plot": "Cinemeta",
+        "watched": 1,
+        "created_at": 1781692242,
+        "cast": "Anna Faris, Jon Abrahams, Marlon Wayans"
+      },
+      {
+        "id": 42,
+        "user_id": 1,
+        "imdb_id": "tt0381936",
+        "title": "Бумер",
+        "original_title": "Bumer",
+        "year": "2003",
+        "poster": "https://images.metahub.space/poster/small/tt0381936/img",
+        "rating": "7.1",
+        "runtime": "110 min",
+        "genre": "Crime, Drama",
+        "director": "Pyotr Buslov",
+        "plot": "«Бу́мер» — российский кинофильм 2003 года в жанрах боевик, криминальная драма и роуд-муви. Полнометражный дебют режиссёра Петра Буслова. Премьера в кинотеатрах состоялась 2 августа 2003 года, а премьера на ТВ состоялась 10 октября 2004 года на телеканале «НТВ». В 2006 году вышло продолжение фильма — «Бумер. Фильм второй».",
+        "watched": 1,
+        "created_at": 1781767762,
+        "cast": "Vladimir Vdovichenkov, Andrey Merzlikin, Maksim Konovalov"
+      },
+      {
+        "id": 43,
+        "user_id": 1,
+        "imdb_id": "tt0402874",
+        "title": "Bumer: Film vtoroy",
+        "original_title": "Bumer: Film vtoroy",
+        "year": "2006",
+        "poster": "https://images.metahub.space/poster/small/tt0402874/img",
+        "rating": "6.1",
+        "runtime": "115 min",
+        "genre": "Crime, Drama",
+        "director": "Pyotr Buslov",
+        "plot": "Cinemeta",
+        "watched": 1,
+        "created_at": 1781767772,
+        "cast": "Vladimir Vdovichenkov, Svetlana Ustinova, Andrey Merzlikin"
+      }
+    ],
+    "collections": [
+      {
+        "id": 1,
+        "user_id": 1,
+        "name": "С Демоном",
+        "created_at": 1781508100,
+        "updated_at": 1781692248
+      },
+      {
+        "id": 2,
+        "user_id": 1,
+        "name": "С Леной",
+        "created_at": 1781508107,
+        "updated_at": 1781510940
+      }
+    ],
+    "collection_movies": [
+      {
+        "collection_id": 2,
+        "movie_id": 20
+      },
+      {
+        "collection_id": 2,
+        "movie_id": 21
+      },
+      {
+        "collection_id": 2,
+        "movie_id": 25
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 1
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 3
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 4
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 5
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 6
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 7
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 8
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 9
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 10
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 11
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 12
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 13
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 15
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 16
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 17
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 18
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 19
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 21
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 22
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 23
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 24
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 31
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 32
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 33
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 34
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 36
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 37
+      },
+      {
+        "collection_id": 1,
+        "movie_id": 39
+      }
+    ]
+  }
+}

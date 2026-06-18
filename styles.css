@@ -102,11 +102,11 @@ button {
 
 .app-logo img {
   display: block;
-  width: min(360px, 78vw);
-  max-height: 180px;
+  width: min(520px, 86vw);
+  max-height: 250px;
   object-fit: contain;
-  border-radius: 8px;
-  filter: drop-shadow(0 0 22px rgba(0, 255, 65, 0.22));
+  border-radius: 0;
+  filter: drop-shadow(0 0 26px rgba(0, 255, 65, 0.34));
 }
 
 h1,
@@ -288,9 +288,10 @@ input:focus {
 }
 
 .search-results {
-  grid-column: 2;
+  grid-column: 1 / -1;
   display: grid;
   gap: 10px;
+  width: 100%;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -316,10 +317,10 @@ input:focus {
 
 .candidate-option {
   display: grid;
-  gap: 4px;
+  gap: 8px;
   align-content: center;
   width: 100%;
-  min-height: 48px;
+  min-height: 68px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-strong);
@@ -342,14 +343,32 @@ input:focus {
 }
 
 .candidate-details {
-  display: -webkit-box;
+  display: block;
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
   font-size: 0.84rem;
   line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.candidate-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.candidate-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid color-mix(in srgb, var(--teal) 34%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--teal) 14%, transparent);
+  color: var(--teal-strong);
+  font-size: 0.74rem;
+  font-weight: 900;
+  padding: 0 8px;
 }
 
 .action-strip {
@@ -715,7 +734,7 @@ input:focus {
 }
 
 .library-search-row .library-search-field {
-  width: min(100%, 520px);
+  width: 100%;
 }
 
 .library-filter-panel {
@@ -728,6 +747,11 @@ input:focus {
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.library-filter-panel[open] .library-filters {
+  animation: revealPanel 360ms var(--ease-out);
+  transform-origin: top;
 }
 
 .filter-check {
@@ -1211,30 +1235,40 @@ body::after {
 
 body::before {
   background:
+    radial-gradient(circle at 22% 18%, rgba(0, 255, 65, 0.08), transparent 24%),
+    radial-gradient(circle at 78% 22%, rgba(0, 229, 255, 0.055), transparent 26%),
     linear-gradient(115deg, rgba(12, 156, 145, 0.16), transparent 28%),
     linear-gradient(245deg, rgba(239, 107, 91, 0.13), transparent 31%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 44%),
     repeating-linear-gradient(90deg, rgba(17, 24, 39, 0.045) 0 1px, transparent 1px 72px),
     repeating-linear-gradient(0deg, rgba(17, 24, 39, 0.035) 0 1px, transparent 1px 72px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 72px 72px, 72px 72px;
+  animation: alienGridDrift 28s linear infinite;
 }
 
 body::after {
   background:
+    repeating-linear-gradient(115deg, transparent 0 42px, rgba(0, 255, 65, 0.035) 42px 43px, transparent 43px 96px),
     linear-gradient(180deg, transparent 0%, rgba(17, 24, 39, 0.05) 100%),
     linear-gradient(90deg, rgba(255, 255, 255, 0.28), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.24));
+  animation: alienSignalSlide 22s linear infinite;
 }
 
 [data-theme="dark"] body::before {
   background:
+    radial-gradient(circle at 20% 18%, rgba(0, 255, 65, 0.07), transparent 24%),
+    radial-gradient(circle at 78% 18%, rgba(0, 229, 255, 0.055), transparent 26%),
     linear-gradient(115deg, rgba(53, 212, 197, 0.12), transparent 28%),
     linear-gradient(245deg, rgba(255, 119, 104, 0.11), transparent 31%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 46%),
     repeating-linear-gradient(90deg, rgba(226, 232, 240, 0.04) 0 1px, transparent 1px 76px),
     repeating-linear-gradient(0deg, rgba(226, 232, 240, 0.032) 0 1px, transparent 1px 76px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 76px 76px, 76px 76px;
 }
 
 [data-theme="dark"] body::after {
   background:
+    repeating-linear-gradient(115deg, transparent 0 42px, rgba(0, 255, 65, 0.03) 42px 43px, transparent 43px 96px),
     linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.24) 100%),
     linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.025));
 }
@@ -1419,7 +1453,9 @@ button,
 .icon-button:hover,
 .candidate-option:hover,
 .collection-tab:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--teal) 72%, var(--line));
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.24), var(--hover-shadow);
 }
 
 .primary-button:hover::before,
@@ -1435,7 +1471,7 @@ button,
 .icon-button:active,
 .candidate-option:active,
 .collection-tab:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(1px) scale(0.99);
 }
 
 .primary-button:focus-visible,
@@ -1537,7 +1573,7 @@ button,
 }
 
 .random-settings-panel:not([hidden]) {
-  animation: softRise 220ms var(--ease-out);
+  animation: softRise 320ms var(--ease-out);
 }
 
 .duration-range {
@@ -1794,7 +1830,7 @@ button,
 }
 
 .modal-backdrop:not([hidden]) {
-  animation: fadeIn 180ms var(--ease-out);
+  animation: fadeIn 260ms var(--ease-out);
 }
 
 .modal-panel {
@@ -1802,7 +1838,7 @@ button,
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
     var(--surface);
   box-shadow: 0 34px 100px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  animation: modalIn 240ms var(--ease-out);
+  animation: modalIn 420ms var(--ease-out);
 }
 
 .import-row {
@@ -1843,7 +1879,7 @@ button,
 @keyframes modalIn {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+    transform: translateY(18px) scale(0.975);
   }
 }
 
@@ -1851,6 +1887,25 @@ button,
   from {
     opacity: 0;
     transform: translateY(6px);
+  }
+}
+
+@keyframes revealPanel {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scaleY(0.96);
+  }
+}
+
+@keyframes alienGridDrift {
+  to {
+    background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 72px 36px, 36px 72px;
+  }
+}
+
+@keyframes alienSignalSlide {
+  to {
+    background-position: 120px 0, 0 0, 0 0;
   }
 }
 
@@ -1952,7 +2007,7 @@ body::after {
   isolation: isolate;
   width: min(1180px, calc(100% - 28px));
   padding: 30px 0 48px;
-  perspective: 1400px;
+  perspective: none;
 }
 
 .app-shell::before {
@@ -1962,7 +2017,8 @@ body::after {
 .app-shell::after {
   content: "FILMRANDOMIZER // LOCAL NODE";
   position: fixed;
-  right: max(18px, calc((100vw - 1180px) / 2));
+  left: 50%;
+  right: auto;
   bottom: 14px;
   z-index: 4;
   border: 1px solid rgba(0, 229, 255, 0.28);
@@ -1973,7 +2029,9 @@ body::after {
   letter-spacing: 0.16em;
   padding: 7px 10px;
   pointer-events: none;
+  text-align: center;
   text-shadow: 0 0 10px rgba(0, 229, 255, 0.72);
+  transform: translateX(-50%);
 }
 
 .app-shell[data-state="locked"] {
@@ -2211,7 +2269,9 @@ input::placeholder {
 .collection-tab:hover,
 .duration-option input:not(:disabled) + span:hover {
   color: #ffffff;
-  transform: translateY(-3px);
+  border-color: rgba(0, 229, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.26), 0 0 28px rgba(0, 255, 65, 0.22), var(--hover-shadow);
+  transform: translateY(-1px);
 }
 
 .primary-button:active,
@@ -2222,7 +2282,7 @@ input::placeholder {
 .candidate-option:active,
 .collection-tab:active,
 .duration-option input:not(:disabled):active + span {
-  transform: translateY(4px);
+  transform: translateY(1px) scale(0.99);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(0, 255, 65, 0.18);
 }
 
@@ -2235,7 +2295,7 @@ input::placeholder {
 }
 
 .random-settings-panel[data-state="open"] {
-  animation: xenoPanelLock 360ms var(--ease-out) both;
+  animation: xenoPanelLock 460ms var(--ease-out) both;
 }
 
 .duration-range[data-state="idle"] {
@@ -2505,7 +2565,7 @@ input::placeholder {
 
 @media (min-width: 920px) {
   .app-shell {
-    transform: perspective(1800px) rotateX(0.6deg);
+    transform: none;
     transform-origin: top center;
   }
 }
