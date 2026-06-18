@@ -1238,7 +1238,6 @@ function renderCards() {
       poster.classList.add("placeholder");
     });
 
-    const originalTitle = movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : "";
     const rating = card.querySelector(".rating");
     const runtime = card.querySelector(".runtime");
 
@@ -1247,7 +1246,7 @@ function renderCards() {
     runtime.hidden = !movie.runtime;
     rating.textContent = movie.rating ? `IMDb ${movie.rating}` : "IMDb —";
     card.querySelector(".title").textContent = movie.title;
-    card.querySelector(".meta").textContent = [originalTitle, movie.genre, movie.director].filter(Boolean).join(" • ");
+    card.querySelector(".meta").textContent = [movie.director, movie.cast, movie.genre].filter(Boolean).join(" • ");
     const plot = card.querySelector(".plot");
     plot.textContent = movie.plot;
     card.querySelector(".watched-input").checked = movie.watched;
