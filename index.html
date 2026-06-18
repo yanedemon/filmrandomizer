@@ -3,7 +3,9 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Film Randomizer</title>
+    <title>FILMRANDOMIZER</title>
+    <link rel="icon" type="image/png" href="assets/favicon.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <script>
       document.documentElement.dataset.theme = "dark";
     </script>
@@ -43,11 +45,8 @@
           <button class="ghost-button" id="logoutButton" type="button">Выйти</button>
         </div>
 
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true">XO</span>
-          <div>
-            <h1 class="terminal-text" data-terminal-reveal>XENO-FR // ARCHIVE</h1>
-          </div>
+        <div class="app-logo" aria-label="FILMRANDOMIZER">
+          <img src="assets/filmrandomizer-logo.png" alt="FILMRANDOMIZER">
         </div>
 
         <form class="add-form" id="movieForm" hidden>
@@ -63,9 +62,9 @@
             >
           </label>
           <div class="add-actions">
+            <button class="primary-button" type="submit">Сохранить</button>
             <label class="ghost-button file-button" for="movieImportFile">Импорт TXT</label>
             <input id="movieImportFile" type="file" accept=".txt,text/plain" hidden>
-            <button class="primary-button" type="submit">Сохранить</button>
           </div>
         </form>
 
@@ -243,7 +242,7 @@
     </main>
 
     <div class="modal-backdrop" id="collectionModal" hidden>
-      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="collectionModalTitle">
+      <section class="modal-panel collection-panel" role="dialog" aria-modal="true" aria-labelledby="collectionModalTitle">
         <div class="modal-header">
           <h3 id="collectionModalTitle">Коллекция</h3>
           <button class="icon-button" id="closeCollectionModal" type="button" aria-label="Закрыть">×</button>

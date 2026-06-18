@@ -6,7 +6,6 @@ import {
 const USER_STORAGE = "film-randomizer.user";
 const LEGACY_MOVIES_STORAGE = "film-randomizer.movies";
 const PAGE_SIZE = 15;
-const GLITCH_CHARS = "&^%$#@01";
 const SEARCH_DEBOUNCE_MS = 250;
 const MOVIE_SEARCH_MIN_LENGTH = 3;
 const MOVIE_SEARCH_LIMIT = 5;
@@ -517,7 +516,6 @@ function initApp() {
   syncRandomDurationControls();
   renderShell();
   render();
-  runTerminalReveals();
 
   if (state.user) {
     loadLibrary().catch((error) => {
@@ -1560,52 +1558,6 @@ function saveUser() {
     return;
   }
   localStorage.setItem(USER_STORAGE, JSON.stringify(state.user));
-}
-
-function runTerminalReveals(root = document) {
-  root.querySelectorAll("[data-terminal-reveal]").forEach((element) => {
-    revealTerminalText(element);
-  });
-}
-
-function revealTerminalText(element) {
-  if (element.dataset.revealed === "true") {
-    return;
-  }
-
-  const text = element.textContent;
-  element.dataset.revealed = "true";
-  element.textContent = "";
-
-  const spans = [...text].map((char) => {
-    const span = document.createElement("span");
-    span.dataset.final = char;
-    span.textContent = char === " " ? "\u00a0" : char;
-    element.append(span);
-    return span;
-  });
-
-  let frame = 0;
-  const settleFrame = 8;
-  const interval = window.setInterval(() => {
-    spans.forEach((span, index) => {
-      const finalChar = span.dataset.final;
-      if (finalChar === " " || index < frame - 3) {
-        span.textContent = finalChar === " " ? "\u00a0" : finalChar;
-        return;
-      }
-      span.textContent = GLITCH_CHARS[Math.floor(Math.random() * GLITCH_CHARS.length)];
-    });
-
-    frame += 1;
-    if (frame > spans.length + settleFrame) {
-      window.clearInterval(interval);
-      spans.forEach((span) => {
-        const finalChar = span.dataset.final;
-        span.textContent = finalChar === " " ? "\u00a0" : finalChar;
-      });
-    }
-  }, 34);
 }
 
 function escapeHtml(value) {

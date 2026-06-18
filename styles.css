@@ -87,31 +87,26 @@ button {
 .toolbar {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(250px, 0.8fr) minmax(360px, 1.2fr);
-  gap: 16px 24px;
-  align-items: end;
-  padding: 18px;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  align-items: stretch;
+  padding: 34px 18px 18px;
   border-radius: 8px;
 }
 
-.brand {
+.app-logo {
   display: flex;
-  gap: 14px;
-  align-items: center;
+  justify-content: center;
   min-width: 0;
 }
 
-.brand-mark {
-  display: grid;
-  flex: 0 0 48px;
-  width: 48px;
-  height: 48px;
-  place-items: center;
+.app-logo img {
+  display: block;
+  width: min(360px, 78vw);
+  max-height: 180px;
+  object-fit: contain;
   border-radius: 8px;
-  background: var(--ink);
-  color: var(--surface);
-  font-weight: 800;
-  letter-spacing: 0;
+  filter: drop-shadow(0 0 22px rgba(0, 255, 65, 0.22));
 }
 
 h1,
@@ -128,17 +123,12 @@ h1 {
   white-space: nowrap;
 }
 
-.brand p,
 .muted,
 .field span,
 .status-row span,
 .meta,
 .plot {
   color: var(--muted);
-}
-
-.brand p {
-  margin-top: 8px;
 }
 
 .add-form {
@@ -388,14 +378,15 @@ input:focus {
 
 .random-settings-panel {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 22px;
   width: calc(100% + 32px);
   margin-inline: -16px;
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-strong);
-  padding: 10px 12px;
+  padding: 16px;
 }
 
 .random-setting-row {
@@ -476,6 +467,10 @@ input:focus {
   background: rgba(191, 131, 45, 0.1);
   border-radius: 0 8px 8px 0;
   line-height: 1.35;
+}
+
+.picked-movie:empty {
+  display: none;
 }
 
 .picked-movie strong {
@@ -745,6 +740,15 @@ input:focus {
   font-weight: 800;
 }
 
+.filter-check input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  accent-color: var(--teal);
+}
+
 .section-heading {
   display: flex;
   gap: 12px;
@@ -975,6 +979,14 @@ h2 {
   background: var(--surface);
   box-shadow: var(--shadow);
   padding: 18px;
+}
+
+.collection-panel {
+  width: min(1180px, 100%);
+}
+
+.collection-panel .modal-form {
+  width: 100%;
 }
 
 .import-panel {
@@ -1307,32 +1319,6 @@ h3 {
     background: none;
     color: var(--ink);
   }
-}
-
-.brand-mark {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: linear-gradient(135deg, #111827 0%, var(--teal) 58%, var(--coral) 100%);
-  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.18);
-}
-
-.brand-mark::after {
-  content: "";
-  position: absolute;
-  inset: -45%;
-  z-index: -1;
-  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.52), transparent 65%);
-  transform: translateX(-65%) rotate(10deg);
-  transition: transform 600ms var(--ease-out);
-}
-
-.brand:hover .brand-mark::after {
-  transform: translateX(65%) rotate(10deg);
-}
-
-.brand p {
-  color: color-mix(in srgb, var(--muted) 88%, var(--teal));
 }
 
 input,
@@ -1885,7 +1871,7 @@ button,
   }
 }
 
-/* XENO-OS // ARCHIVE interface layer */
+/* FILMRANDOMIZER interface layer */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
@@ -1974,7 +1960,7 @@ body::after {
 }
 
 .app-shell::after {
-  content: "XENO_CORE // PRIVATE ARCHIVE // LOCAL NODE";
+  content: "FILMRANDOMIZER // LOCAL NODE";
   position: fixed;
   right: max(18px, calc((100vw - 1180px) / 2));
   bottom: 14px;
@@ -2054,6 +2040,8 @@ body::after {
 
 .toolbar::before {
   content: "SYSTEM BOOT";
+  right: auto;
+  left: 12px;
 }
 
 .auth-section::before {
@@ -2105,13 +2093,11 @@ body::after {
   transform: translateY(-1px);
 }
 
-.terminal-text,
 h1,
 h2,
 h3,
 .search-results-title,
 .message,
-.brand-mark,
 .year,
 .runtime,
 .rating,
@@ -2143,7 +2129,6 @@ h3,
   text-shadow: 0 0 12px rgba(0, 255, 65, 0.18);
 }
 
-.brand p,
 .muted,
 .field span,
 .status-row span,
@@ -2152,18 +2137,6 @@ h3,
 .candidate-details,
 .import-title span {
   color: var(--xeno-muted);
-}
-
-.brand-mark {
-  background:
-    linear-gradient(135deg, rgba(0, 255, 65, 0.92), rgba(0, 229, 255, 0.68) 62%, rgba(255, 59, 47, 0.88)),
-    #07110d;
-  color: #001b07;
-  box-shadow: 0 0 24px rgba(0, 255, 65, 0.32), inset 0 -5px 0 rgba(0, 0, 0, 0.28);
-}
-
-.brand-mark::after {
-  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.72), transparent 65%);
 }
 
 input,
@@ -2493,7 +2466,7 @@ input::placeholder {
 }
 
 .library-filters select,
-.library-filters input {
+.library-filters input:not([type="checkbox"]) {
   min-height: 40px;
 }
 
@@ -2561,6 +2534,10 @@ input::placeholder {
     width: 100%;
   }
 
+  .random-settings-panel {
+    grid-template-columns: 1fr;
+  }
+
   .rating-option,
   .duration-option {
     flex: 1 1 0;
@@ -2575,10 +2552,6 @@ input::placeholder {
 @media (prefers-reduced-motion: reduce) {
   .app-shell::before {
     animation: none !important;
-  }
-
-  .terminal-text span {
-    transition: none !important;
   }
 }
 
