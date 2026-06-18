@@ -1,6 +1,6 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 import argparse
 import hashlib
 import json
@@ -8,6 +8,18 @@ import mimetypes
 import sqlite3
 import sys
 import time
+
+from backend_services import (
+    fetch_movie_details,
+    find_matching_local_movie,
+    get_expanded_movie,
+    get_library_payload,
+    normalize_movie,
+    pick_external_random,
+    pick_library_random,
+    preview_import,
+    search_movie_candidates,
+)
 
 
 ROOT = Path(__file__).resolve().parent
@@ -116,6 +128,7 @@ def row_to_collection(row, movie_ids):
         "id": row["id"],
         "name": row["name"],
         "movieIds": movie_ids,
+        "movieCount": len(movie_ids),
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
@@ -165,7 +178,16 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path == "/api/library":
-            self.handle_library()
+            self.handle_library(parsed)
+            return
+        if parsed.path == "/api/library/movie-picker":
+            self.handle_library_movie_picker(parsed)
+            return
+        if parsed.path == "/api/catalog/search":
+            self.handle_catalog_search(parsed)
+            return
+        if parsed.path.startswith("/api/movies/") and parsed.path.endswith("/details"):
+            self.handle_movie_details(parsed.path)
             return
         self.serve_static(parsed.path)
 
@@ -177,6 +199,14 @@ class Handler(SimpleHTTPRequestHandler):
             self.handle_login()
         elif parsed.path == "/api/movies":
             self.handle_create_movie()
+        elif parsed.path == "/api/movies/from-candidate":
+            self.handle_create_movie_from_candidate()
+        elif parsed.path == "/api/catalog/details":
+            self.handle_catalog_details()
+        elif parsed.path == "/api/discovery/random":
+            self.handle_random_discovery()
+        elif parsed.path == "/api/import/preview":
+            self.handle_import_preview()
         elif parsed.path == "/api/collections":
             self.handle_create_collection()
         else:
@@ -285,92 +315,6 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_json(*json_error("Неверный логин или пароль.", 401))
             return
         self.send_json(200, {"user": {"id": row["id"], "username": row["username"]}})
-
-    def handle_library(self):
-        with connect_db() as db:
-            user_id = self.require_user(db)
-            if not user_id:
-                self.send_json(*json_error("Нужно войти.", 401))
-                return
-
-            movies = [
-                row_to_movie(row)
-                for row in db.execute(
-                    "SELECT * FROM movies WHERE user_id = ? ORDER BY created_at DESC, id DESC",
-                    (user_id,),
-                )
-            ]
-            collection_rows = list(
-                db.execute(
-                    "SELECT * FROM collections WHERE user_id = ? ORDER BY updated_at DESC, id DESC",
-                    (user_id,),
-                )
-            )
-            membership = {}
-            for row in db.execute(
-                """
-                SELECT cm.collection_id, cm.movie_id
-                FROM collection_movies cm
-                JOIN collections c ON c.id = cm.collection_id
-                WHERE c.user_id = ?
-                """,
-                (user_id,),
-            ):
-                membership.setdefault(row["collection_id"], []).append(row["movie_id"])
-            collections = [
-                row_to_collection(row, membership.get(row["id"], []))
-                for row in collection_rows
-            ]
-        self.send_json(200, {"movies": movies, "collections": collections})
-
-    def handle_create_movie(self):
-        data = self.read_json()
-        with connect_db() as db:
-            user_id = self.require_user(db)
-            if not user_id:
-                self.send_json(*json_error("Нужно войти.", 401))
-                return
-
-            imdb_id = str(data.get("imdbId", "")).strip()
-            title = str(data.get("title", "")).strip()
-            if not imdb_id or not title:
-                self.send_json(*json_error("Недостаточно данных фильма."))
-                return
-
-            existing = db.execute(
-                "SELECT * FROM movies WHERE user_id = ? AND imdb_id = ?",
-                (user_id, imdb_id),
-            ).fetchone()
-            if existing:
-                self.send_json(200, {"movie": row_to_movie(existing), "alreadyExists": True})
-                return
-
-            cursor = db.execute(
-                """
-                INSERT INTO movies (
-                  user_id, imdb_id, title, original_title, year, poster, rating,
-                  runtime, genre, director, cast, plot, watched, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    user_id,
-                    imdb_id,
-                    title,
-                    data.get("originalTitle") or "",
-                    data.get("year") or "",
-                    data.get("poster") or "",
-                    data.get("rating") or "",
-                    data.get("runtime") or "",
-                    data.get("genre") or "",
-                    data.get("director") or "",
-                    data.get("cast") or "",
-                    data.get("plot") or "",
-                    1 if data.get("watched") else 0,
-                    now_ts(),
-                ),
-            )
-            row = db.execute("SELECT * FROM movies WHERE id = ?", (cursor.lastrowid,)).fetchone()
-        self.send_json(201, {"movie": row_to_movie(row)})
 
     def handle_update_movie(self, path):
         movie_id = parse_path_id(path)
@@ -481,12 +425,289 @@ class Handler(SimpleHTTPRequestHandler):
             )
         self.send_json(200, {"ok": True})
 
+    def handle_library(self, parsed):
+        with connect_db() as db:
+            user_id = self.require_user(db)
+            if not user_id:
+                self.send_json(*json_error("РќСѓР¶РЅРѕ РІРѕР№С‚Рё.", 401))
+                return
+            movies = get_user_movies(db, user_id)
+            collections = get_user_collections(db, user_id)
+            payload = get_library_payload(movies, collections, read_query(parsed))
+        self.send_json(200, payload)
+
+    def handle_library_movie_picker(self, parsed):
+        with connect_db() as db:
+            user_id = self.require_user(db)
+            if not user_id:
+                self.send_json(*json_error("РќСѓР¶РЅРѕ РІРѕР№С‚Рё.", 401))
+                return
+            movies = get_user_movies(db, user_id)
+            query = read_query(parsed).get("search", "")
+            if query:
+                payload = get_library_payload(
+                    movies,
+                    get_user_collections(db, user_id),
+                    {"search": query, "limit": str(max(len(movies), 1))},
+                )
+                movies = payload["movies"]
+        self.send_json(200, {"movies": movies})
+
+    def handle_catalog_search(self, parsed):
+        query = read_query(parsed).get("q", "").strip()
+        if not query:
+            self.send_json(*json_error("Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ С„РёР»СЊРјР°."))
+            return
+        try:
+            self.send_json(200, {"candidates": search_movie_candidates(query)})
+        except Exception as error:
+            self.send_json(*json_error(str(error)))
+
+    def handle_catalog_details(self):
+        data = self.read_json()
+        candidate = data.get("candidate") or data
+        if not isinstance(candidate, dict):
+            self.send_json(*json_error("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… С„РёР»СЊРјР°."))
+            return
+        try:
+            self.send_json(200, {"movie": fetch_movie_details(candidate)})
+        except Exception as error:
+            self.send_json(*json_error(str(error)))
+
+    def handle_movie_details(self, path):
+        movie_id = parse_path_id(path.removesuffix("/details"))
+        if movie_id is None:
+            self.send_json(*json_error("Р¤РёР»СЊРј РЅРµ РЅР°Р№РґРµРЅ.", 404))
+            return
+        with connect_db() as db:
+            user_id = self.require_user(db)
+            if not user_id:
+                self.send_json(*json_error("РќСѓР¶РЅРѕ РІРѕР№С‚Рё.", 401))
+                return
+            row = db.execute(
+                "SELECT * FROM movies WHERE id = ? AND user_id = ?",
+                (movie_id, user_id),
+            ).fetchone()
+        if not row:
+            self.send_json(*json_error("Р¤РёР»СЊРј РЅРµ РЅР°Р№РґРµРЅ.", 404))
+            return
+        self.send_json(200, {"movie": get_expanded_movie(row_to_movie(row))})
+
+    def handle_create_movie(self):
+        data = self.read_json()
+        with connect_db() as db:
+            user_id = self.require_user(db)
+            if not user_id:
+                self.send_json(*json_error("РќСѓР¶РЅРѕ РІРѕР№С‚Рё.", 401))
+                return
+            try:
+                result = save_movie_for_user(db, user_id, normalize_movie(data), data.get("collectionId"))
+            except Exception as error:
+                self.send_json(*json_error(str(error)))
+                return
+        self.send_json(200 if result["alreadyInLibrary"] else 201, result)
+
+    def handle_create_movie_from_candidate(self):
+        data = self.read_json()
+        candidate = data.get("candidate") or {}
+        if not isinstance(candidate, dict):
+            self.send_json(*json_error("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… С„РёР»СЊРјР°."))
+            return
+        with connect_db() as db:
+            user_id = self.require_user(db)
+            if not user_id:
+                self.send_json(*json_error("РќСѓР¶РЅРѕ РІРѕР№С‚Рё.", 401))
+                return
+            existing = find_matching_local_movie(get_user_movies(db, user_id), movie_lookup_from_candidate(candidate))
+            try:
+                movie = existing if existing else fetch_movie_details(candidate)
+                result = save_movie_for_user(db, user_id, movie, data.get("collectionId"))
+            except Exception as error:
+                self.send_json(*json_error(str(error)))
+                return
+        self.send_json(200 if result["alreadyInLibrary"] else 201, result)
+
+    def handle_random_discovery(self):
+        data = self.read_json()
+        source = data.get("source") or "library"
+        with connect_db() as db:
+            user_id = self.require_user(db)
+            if not user_id:
+                self.send_json(*json_error("РќСѓР¶РЅРѕ РІРѕР№С‚Рё.", 401))
+                return
+            movies = get_user_movies(db, user_id)
+            collections = get_user_collections(db, user_id)
+        try:
+            if source == "external":
+                result = pick_external_random(movies, data)
+            else:
+                result = pick_library_random(movies, collections, data)
+            self.send_json(200, result)
+        except Exception as error:
+            self.send_json(*json_error(str(error)))
+
+    def handle_import_preview(self):
+        data = self.read_json()
+        text = str(data.get("text") or "")
+        if not text.strip():
+            self.send_json(*json_error("Р’ С„Р°Р№Р»Рµ РЅРµ РЅР°Р№РґРµРЅРѕ РЅР°Р·РІР°РЅРёР№ С„РёР»СЊРјРѕРІ."))
+            return
+        with connect_db() as db:
+            user_id = self.require_user(db)
+            if not user_id:
+                self.send_json(*json_error("РќСѓР¶РЅРѕ РІРѕР№С‚Рё.", 401))
+                return
+            movies = get_user_movies(db, user_id)
+        try:
+            self.send_json(200, preview_import(text, movies))
+        except Exception as error:
+            self.send_json(*json_error(str(error)))
+
 
 def parse_path_id(path):
     try:
         return int(path.rsplit("/", 1)[-1])
     except (TypeError, ValueError):
         return None
+
+
+def read_query(parsed):
+    return {
+        key: values[-1]
+        for key, values in parse_qs(parsed.query, keep_blank_values=True).items()
+    }
+
+
+def get_user_movies(db, user_id):
+    return [
+        row_to_movie(row)
+        for row in db.execute(
+            "SELECT * FROM movies WHERE user_id = ? ORDER BY created_at DESC, id DESC",
+            (user_id,),
+        )
+    ]
+
+
+def get_user_collections(db, user_id):
+    collection_rows = list(
+        db.execute(
+            "SELECT * FROM collections WHERE user_id = ? ORDER BY updated_at DESC, id DESC",
+            (user_id,),
+        )
+    )
+    membership = {}
+    for row in db.execute(
+        """
+        SELECT cm.collection_id, cm.movie_id
+        FROM collection_movies cm
+        JOIN collections c ON c.id = cm.collection_id
+        WHERE c.user_id = ?
+        """,
+        (user_id,),
+    ):
+        membership.setdefault(row["collection_id"], []).append(row["movie_id"])
+    return [
+        row_to_collection(row, membership.get(row["id"], []))
+        for row in collection_rows
+    ]
+
+
+def save_movie_for_user(db, user_id, movie, collection_id=None):
+    imdb_id = str(movie.get("imdbId", "")).strip()
+    title = str(movie.get("title", "")).strip()
+    if not imdb_id or not title:
+        raise ValueError("РќРµРґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР°РЅРЅС‹С… С„РёР»СЊРјР°.")
+
+    existing = db.execute(
+        "SELECT * FROM movies WHERE user_id = ? AND imdb_id = ?",
+        (user_id, imdb_id),
+    ).fetchone()
+    already_exists = bool(existing)
+
+    if existing:
+        row = existing
+    else:
+        cursor = db.execute(
+            """
+            INSERT INTO movies (
+              user_id, imdb_id, title, original_title, year, poster, rating,
+              runtime, genre, director, cast, plot, watched, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                imdb_id,
+                title,
+                movie.get("originalTitle") or "",
+                movie.get("year") or "",
+                movie.get("poster") or "",
+                movie.get("rating") or "",
+                movie.get("runtime") or "",
+                movie.get("genre") or "",
+                movie.get("director") or "",
+                movie.get("cast") or "",
+                movie.get("plot") or "",
+                1 if movie.get("watched") else 0,
+                now_ts(),
+            ),
+        )
+        row = db.execute("SELECT * FROM movies WHERE id = ?", (cursor.lastrowid,)).fetchone()
+
+    attachment = attach_movie_to_collection(db, user_id, row["id"], collection_id)
+    return {
+        "movie": row_to_movie(row),
+        "alreadyInLibrary": already_exists,
+        "collectionName": attachment["name"],
+        "attachedToCollection": attachment["added"],
+    }
+
+
+def attach_movie_to_collection(db, user_id, movie_id, collection_id):
+    parsed_collection_id = parse_optional_int(collection_id)
+    if not parsed_collection_id:
+        return {"name": "", "added": False}
+
+    collection = db.execute(
+        "SELECT * FROM collections WHERE id = ? AND user_id = ?",
+        (parsed_collection_id, user_id),
+    ).fetchone()
+    if not collection:
+        return {"name": "", "added": False}
+
+    existing = db.execute(
+        "SELECT 1 FROM collection_movies WHERE collection_id = ? AND movie_id = ?",
+        (parsed_collection_id, movie_id),
+    ).fetchone()
+    if existing:
+        return {"name": collection["name"], "added": False}
+
+    db.execute(
+        "INSERT OR IGNORE INTO collection_movies (collection_id, movie_id) VALUES (?, ?)",
+        (parsed_collection_id, movie_id),
+    )
+    db.execute(
+        "UPDATE collections SET updated_at = ? WHERE id = ? AND user_id = ?",
+        (now_ts(), parsed_collection_id, user_id),
+    )
+    return {"name": collection["name"], "added": True}
+
+
+def parse_optional_int(value):
+    if value in (None, "", "all"):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def movie_lookup_from_candidate(candidate):
+    return {
+        "imdbId": candidate.get("imdbId"),
+        "title": candidate.get("ruTitle") or candidate.get("title"),
+        "originalTitle": candidate.get("enTitle") or candidate.get("title"),
+        "year": candidate.get("year"),
+    }
 
 
 def safe_ids(values):
