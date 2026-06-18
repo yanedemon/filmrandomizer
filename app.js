@@ -535,6 +535,13 @@ function initApp() {
 }
 
 function logoutUser() {
+  const token = state.user?.token;
+  if (token) {
+    fetch("/api/logout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  }
   state.user = null;
   state.movies = [];
   state.collections = [];
@@ -594,8 +601,8 @@ async function apiFetch(path, options = {}) {
     "Content-Type": "application/json",
     ...(options.headers || {}),
   };
-  if (!options.skipAuth && state.user) {
-    headers["X-User-Id"] = String(state.user.id);
+  if (!options.skipAuth && state.user?.token) {
+    headers.Authorization = `Bearer ${state.user.token}`;
   }
 
   const response = await fetch(path, { ...options, headers });
@@ -1505,13 +1512,23 @@ function showAuthMessage(text, isError = false) {
 
 function loadUser() {
   try {
-    return JSON.parse(localStorage.getItem(USER_STORAGE) || "null");
+    const user = JSON.parse(localStorage.getItem(USER_STORAGE) || "null");
+    if (!user?.token) {
+      localStorage.removeItem(USER_STORAGE);
+      return null;
+    }
+    return user;
   } catch {
+    localStorage.removeItem(USER_STORAGE);
     return null;
   }
 }
 
 function saveUser() {
+  if (!state.user?.token) {
+    localStorage.removeItem(USER_STORAGE);
+    return;
+  }
   localStorage.setItem(USER_STORAGE, JSON.stringify(state.user));
 }
 
