@@ -143,29 +143,28 @@ def normalize_collection_id(value):
 
 
 def filter_library_movies(movies, filters):
-    result = movies
-    if filters.get("hideWatched"):
-        result = [movie for movie in result if not movie.get("watched")]
-
     search = normalize_search_text(filters.get("search"))
-    if search:
-        result = [movie for movie in result if matches_library_search(movie, search)]
-
     year = clean(filters.get("year"))
-    if year:
-        result = [movie for movie in result if get_movie_year(movie) == year]
-
     rating = clean(filters.get("rating"))
-    if rating:
-        result = [movie for movie in result if matches_rating_range(movie.get("rating"), rating)]
-
     genre = clean(filters.get("genre"))
-    if genre:
-        result = [movie for movie in result if has_matching_value(get_movie_genres(movie), genre)]
-
     director = clean(filters.get("director"))
-    if director:
-        result = [movie for movie in result if has_matching_value(get_movie_directors(movie), director)]
+    hide_watched = filters.get("hideWatched")
+    result = []
+
+    for movie in movies:
+        if hide_watched and movie.get("watched"):
+            continue
+        if search and not matches_library_search(movie, search):
+            continue
+        if year and get_movie_year(movie) != year:
+            continue
+        if rating and not matches_rating_range(movie.get("rating"), rating):
+            continue
+        if genre and not has_matching_value(get_movie_genres(movie), genre):
+            continue
+        if director and not has_matching_value(get_movie_directors(movie), director):
+            continue
+        result.append(movie)
 
     return result
 
@@ -216,10 +215,20 @@ def build_scope_stats(movies):
 
 
 def build_filter_options(movies):
+    years = set()
+    genres = set()
+    directors = set()
+    for movie in movies:
+        year = get_movie_year(movie)
+        if year:
+            years.add(year)
+        genres.update(get_movie_genres(movie))
+        directors.update(get_movie_directors(movie))
+
     return {
-        "years": sorted({get_movie_year(movie) for movie in movies if get_movie_year(movie)}, key=year_sort_key),
-        "genres": sort_text({genre for movie in movies for genre in get_movie_genres(movie)}),
-        "directors": sort_text({director for movie in movies for director in get_movie_directors(movie)}),
+        "years": sorted(years, key=year_sort_key),
+        "genres": sort_text(genres),
+        "directors": sort_text(directors),
     }
 
 
@@ -290,7 +299,19 @@ def parse_movie_import_text(text):
 
 
 def best_import_candidate(query, candidates):
-    return sorted(candidates, key=lambda candidate: score_candidate(query, candidate), reverse=True)[0]
+    iterator = iter(candidates)
+    try:
+        best_candidate = next(iterator)
+    except StopIteration:
+        raise IndexError("list index out of range")
+
+    best_score = score_candidate(query, best_candidate)
+    for candidate in iterator:
+        candidate_score = score_candidate(query, candidate)
+        if candidate_score > best_score:
+            best_candidate = candidate
+            best_score = candidate_score
+    return best_candidate
 
 
 def score_candidate(query, candidate):
@@ -508,12 +529,13 @@ def pick_library_random(movies, collections, payload):
 def pick_external_random(movies, payload):
     settings = normalize_random_settings(payload)
     recent_keys = [clean(value) for value in payload.get("recentExternalRandomKeys", []) if clean(value)]
+    recent_key_set = set(recent_keys)
+    local_movie_index = build_local_movie_index(movies)
     queries = build_external_random_queries(settings)
     random.shuffle(queries)
     search_results = [try_value(lambda query=query: fetch_cinemeta_candidates(query), []) for query in queries[:EXTERNAL_RANDOM_SEARCH_LIMIT]]
     candidates = collect_external_random_candidates(search_results)
-    fresh_candidates = [candidate for candidate in candidates if not is_recent_external(candidate, recent_keys)]
-    recent_candidates = [candidate for candidate in candidates if is_recent_external(candidate, recent_keys)]
+    fresh_candidates, recent_candidates = split_external_candidates_by_recency(candidates, recent_key_set)
     candidate_pool = (fresh_candidates + recent_candidates)[:EXTERNAL_RANDOM_DETAIL_LIMIT]
     fallback = None
 
@@ -523,10 +545,10 @@ def pick_external_random(movies, payload):
         matches = [
             movie
             for movie in details
-            if movie and matches_random_settings(movie, "external", movies, settings)
+            if movie and matches_random_settings(movie, "external", movies, settings, local_movie_index)
         ]
         random.shuffle(matches)
-        fresh_match = next((movie for movie in matches if not is_recent_external(movie, recent_keys)), None)
+        fresh_match = next((movie for movie in matches if not is_recent_external(movie, recent_key_set)), None)
         if fresh_match:
             return {
                 "movie": fresh_match,
@@ -553,11 +575,11 @@ def normalize_random_settings(payload):
     }
 
 
-def matches_random_settings(movie, source, local_movies, settings):
+def matches_random_settings(movie, source, local_movies, settings, local_movie_index=None):
     if source == "library" and not settings["includeWatched"] and movie.get("watched"):
         return False
     if source == "external" and not settings["includeWatched"]:
-        local_match = find_matching_local_movie(local_movies, movie)
+        local_match = find_matching_local_movie(local_movies, movie, local_movie_index)
         if local_match and local_match.get("watched"):
             return False
     if settings["durationFilterEnabled"] and not matches_duration_range(movie.get("runtime"), settings["durationRange"]):
@@ -569,14 +591,39 @@ def matches_random_settings(movie, source, local_movies, settings):
     return True
 
 
-def find_matching_local_movie(local_movies, movie):
+def build_local_movie_index(local_movies):
+    by_imdb = {}
+    by_title_year = {}
+    for item in local_movies:
+        imdb_id = clean(item.get("imdbId"))
+        if imdb_id and imdb_id not in by_imdb:
+            by_imdb[imdb_id] = item
+        title_year_key = get_title_year_key(item)
+        if title_year_key not in by_title_year:
+            by_title_year[title_year_key] = item
+    return {"by_imdb": by_imdb, "by_title_year": by_title_year}
+
+
+def get_title_year_key(movie):
+    return (
+        normalize_search_text(movie.get("title") or movie.get("originalTitle")),
+        get_movie_year(movie),
+    )
+
+
+def find_matching_local_movie(local_movies, movie, local_movie_index=None):
     imdb_id = clean(movie.get("imdbId"))
     if imdb_id:
+        if local_movie_index:
+            match = local_movie_index["by_imdb"].get(imdb_id)
+            if match:
+                return match
         match = next((item for item in local_movies if item.get("imdbId") == imdb_id), None)
         if match:
             return match
-    title = normalize_search_text(movie.get("title") or movie.get("originalTitle"))
-    year = get_movie_year(movie)
+    if local_movie_index:
+        return local_movie_index["by_title_year"].get(get_title_year_key(movie))
+    title, year = get_title_year_key(movie)
     return next(
         (
             item for item in local_movies
@@ -634,6 +681,17 @@ def collect_external_random_candidates(search_results):
         seen.add(key)
         unique.append(candidate)
     return unique
+
+
+def split_external_candidates_by_recency(candidates, recent_keys):
+    fresh_candidates = []
+    recent_candidates = []
+    for candidate in candidates:
+        if is_recent_external(candidate, recent_keys):
+            recent_candidates.append(candidate)
+        else:
+            fresh_candidates.append(candidate)
+    return fresh_candidates, recent_candidates
 
 
 def get_external_movie_key(movie):

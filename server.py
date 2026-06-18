@@ -390,15 +390,32 @@ def import_database(path):
         db.execute("DELETE FROM movies")
         db.execute("DELETE FROM users")
         for table in ["users", "movies", "collections", "collection_movies"]:
-            for row in tables.get(table, []):
-                columns = list(row.keys())
-                placeholders = ", ".join("?" for _ in columns)
-                column_names = ", ".join(sql_column_name(column, db.backend) for column in columns)
-                db.execute(
-                    f"INSERT INTO {table} ({column_names}) VALUES ({placeholders})",
-                    [row[column] for column in columns],
-                )
+            insert_table_rows(db, table, tables.get(table, []))
         reset_database_sequences(db)
+
+
+def insert_table_rows(db, table, rows):
+    pending_columns = None
+    pending_params = []
+
+    def flush_pending():
+        if not pending_columns or not pending_params:
+            return
+        placeholders = ", ".join("?" for _ in pending_columns)
+        column_names = ", ".join(sql_column_name(column, db.backend) for column in pending_columns)
+        db.executemany(
+            f"INSERT INTO {table} ({column_names}) VALUES ({placeholders})",
+            pending_params,
+        )
+
+    for row in rows:
+        columns = tuple(row.keys())
+        if pending_columns != columns:
+            flush_pending()
+            pending_columns = columns
+            pending_params = []
+        pending_params.append([row[column] for column in columns])
+    flush_pending()
 
 
 def reset_database_sequences(db):
