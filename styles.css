@@ -2732,17 +2732,17 @@ input::placeholder {
   0%,
   42% {
     opacity: 0;
-    transform: translateX(-135%) skewX(-18deg);
+    transform: translateX(-46%) scaleX(0.92) skewX(-12deg);
   }
 
   55% {
-    opacity: 0.72;
+    opacity: 0.62;
   }
 
   72%,
   100% {
     opacity: 0;
-    transform: translateX(135%) skewX(-18deg);
+    transform: translateX(46%) scaleX(1.04) skewX(-12deg);
   }
 }
 
@@ -2797,6 +2797,8 @@ body::before,
 }
 
 .app-logo img {
+  position: relative;
+  z-index: 1;
   animation: appLogoPulse 5.8s ease-in-out infinite;
   transform-origin: center;
   will-change: filter, transform;
@@ -2805,11 +2807,18 @@ body::before,
 .app-logo::after {
   content: "";
   position: absolute;
-  inset: 4% 20%;
+  inset: -34% 4% -30%;
+  z-index: 0;
+  border-radius: 50%;
   pointer-events: none;
-  background: linear-gradient(100deg, transparent 24%, rgba(0, 255, 65, 0.42) 48%, rgba(0, 229, 255, 0.24) 54%, transparent 76%);
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(0, 255, 65, 0.28) 0 18%, rgba(0, 229, 255, 0.18) 28%, rgba(0, 255, 65, 0.1) 44%, transparent 66%),
+    linear-gradient(100deg, transparent 25%, rgba(0, 255, 65, 0.3) 47%, rgba(0, 229, 255, 0.18) 56%, transparent 78%);
+  filter: blur(20px);
   mix-blend-mode: screen;
   opacity: 0;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 0 34%, rgba(0, 0, 0, 0.76) 49%, transparent 74%);
+  mask-image: radial-gradient(ellipse at 50% 50%, #000 0 34%, rgba(0, 0, 0, 0.76) 49%, transparent 74%);
   animation: logoLightSweep 4.8s ease-in-out infinite;
   will-change: opacity, transform;
 }
