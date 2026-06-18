@@ -2730,19 +2730,14 @@ input::placeholder {
 
 @keyframes logoLightSweep {
   0%,
-  42% {
-    opacity: 0;
-    transform: translateX(-46%) scaleX(0.92) skewX(-12deg);
-  }
-
-  55% {
-    opacity: 0.62;
-  }
-
-  72%,
   100% {
-    opacity: 0;
-    transform: translateX(46%) scaleX(1.04) skewX(-12deg);
+    opacity: 0.2;
+    transform: translateX(-3%) scale(1);
+  }
+
+  50% {
+    opacity: 0.38;
+    transform: translateX(3%) scale(1.08);
   }
 }
 
@@ -2791,9 +2786,29 @@ body::before,
   animation: panelGreenFlow 13s linear infinite;
 }
 
+.toolbar::after {
+  content: "";
+  position: absolute;
+  inset: -12% -8% 18%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(0, 255, 65, 0.2) 0 16%, rgba(0, 229, 255, 0.12) 34%, rgba(0, 255, 65, 0.07) 52%, transparent 76%);
+  filter: blur(24px);
+  mix-blend-mode: screen;
+  opacity: 0.28;
+  animation: logoLightSweep 7.6s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+.toolbar > * {
+  position: relative;
+  z-index: 1;
+}
+
 .app-logo {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .app-logo img {
@@ -2805,22 +2820,7 @@ body::before,
 }
 
 .app-logo::after {
-  content: "";
-  position: absolute;
-  inset: -34% 4% -30%;
-  z-index: 0;
-  border-radius: 50%;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse at 50% 50%, rgba(0, 255, 65, 0.28) 0 18%, rgba(0, 229, 255, 0.18) 28%, rgba(0, 255, 65, 0.1) 44%, transparent 66%),
-    linear-gradient(100deg, transparent 25%, rgba(0, 255, 65, 0.3) 47%, rgba(0, 229, 255, 0.18) 56%, transparent 78%);
-  filter: blur(20px);
-  mix-blend-mode: screen;
-  opacity: 0;
-  -webkit-mask-image: radial-gradient(ellipse at 50% 50%, #000 0 34%, rgba(0, 0, 0, 0.76) 49%, transparent 74%);
-  mask-image: radial-gradient(ellipse at 50% 50%, #000 0 34%, rgba(0, 0, 0, 0.76) 49%, transparent 74%);
-  animation: logoLightSweep 4.8s ease-in-out infinite;
-  will-change: opacity, transform;
+  content: none;
 }
 
 .field input:not([type="checkbox"]):not([type="radio"]),
@@ -3103,6 +3103,10 @@ body::before,
 
   .app-logo img {
     animation: appLogoPulse 5.8s ease-in-out infinite !important;
+  }
+
+  .toolbar::after {
+    animation: logoLightSweep 7.6s ease-in-out infinite !important;
   }
 
   .app-logo::after {
