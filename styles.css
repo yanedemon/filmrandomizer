@@ -1244,7 +1244,8 @@ body::after {
   pointer-events: none;
 }
 
-body::before {
+body::before,
+[data-theme="dark"] body::before {
   background:
     radial-gradient(circle at 22% 18%, rgba(0, 255, 65, 0.08), transparent 24%),
     radial-gradient(circle at 78% 22%, rgba(0, 229, 255, 0.055), transparent 26%),
@@ -2694,4 +2695,268 @@ input::placeholder {
   color: var(--ink);
   padding-inline: 0;
   transition: none;
+}
+
+/* Final polish: compact controls, cyan text actions, and quiet motion. */
+@keyframes pageGreenFlow {
+  0% {
+    background-position: -38% 8%, 0 0, 0 0, 0 0;
+    opacity: 0.28;
+  }
+
+  48% {
+    background-position: 72% 46%, 14px 0, 0 18px, 0 0;
+    opacity: 0.42;
+  }
+
+  100% {
+    background-position: 138% 82%, 28px 0, 0 36px, 0 0;
+    opacity: 0.32;
+  }
+}
+
+@keyframes appLogoPulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 12px rgba(0, 255, 65, 0.32));
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    filter: drop-shadow(0 0 18px rgba(0, 229, 255, 0.34)) drop-shadow(0 0 28px rgba(0, 255, 65, 0.18));
+    transform: translateY(-1px) scale(1.012);
+  }
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 18% 28%, rgba(0, 255, 65, 0.16), transparent 34%),
+    linear-gradient(100deg, transparent 10%, rgba(0, 255, 65, 0.105) 42%, rgba(0, 229, 255, 0.07) 52%, transparent 74%),
+    repeating-linear-gradient(90deg, rgba(0, 255, 65, 0.05) 0 1px, transparent 1px 82px),
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.036) 0 1px, transparent 1px 82px);
+  background-size: 160% 160%, 220% 100%, auto, auto;
+  animation: pageGreenFlow 17s ease-in-out infinite;
+  will-change: background-position, opacity;
+}
+
+.app-logo img {
+  animation: appLogoPulse 5.8s ease-in-out infinite;
+  transform-origin: center;
+  will-change: filter, transform;
+}
+
+.field input:not([type="checkbox"]):not([type="radio"]),
+.field select,
+.library-search-field input {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 0.84rem;
+}
+
+.primary-button,
+.pick-button,
+.ghost-button,
+.file-button {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 0.82rem;
+}
+
+.duration-option span,
+.rating-option span {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 0.76rem;
+}
+
+.random-controls {
+  gap: 8px;
+}
+
+.random-settings-access {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+
+.pick-button,
+.secondary-pick-button {
+  border-color: rgba(0, 229, 255, 0.5);
+  background:
+    linear-gradient(180deg, rgba(0, 229, 255, 0.28), rgba(0, 0, 0, 0.14)),
+    linear-gradient(90deg, rgba(0, 255, 65, 0.12), rgba(0, 229, 255, 0.18)),
+    #071016;
+  box-shadow: 0 7px 0 rgba(0, 0, 0, 0.42), 0 0 24px rgba(0, 229, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+#logoutButton,
+#editSelectedCollection,
+#showMoreMovies,
+.file-button,
+.random-settings-toggle {
+  min-height: auto;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--xeno-cyan);
+  box-shadow: none;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.32);
+  transform: none;
+}
+
+#logoutButton:hover,
+#editSelectedCollection:hover,
+#showMoreMovies:hover,
+.file-button:hover,
+.random-settings-toggle:hover,
+#logoutButton:active,
+#editSelectedCollection:active,
+#showMoreMovies:active,
+.file-button:active,
+.random-settings-toggle:active {
+  border-color: transparent;
+  background: transparent;
+  color: #dffcff;
+  box-shadow: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transform: none;
+}
+
+#logoutButton:focus-visible,
+#editSelectedCollection:focus-visible,
+#showMoreMovies:focus-visible,
+.file-button:focus-visible,
+.random-settings-toggle:focus-visible {
+  outline: 1px solid rgba(0, 229, 255, 0.52);
+  outline-offset: 4px;
+  box-shadow: none;
+}
+
+.random-settings-toggle[data-state="open"],
+.random-settings-toggle.is-open {
+  background: transparent;
+  color: #dffcff;
+  box-shadow: none;
+}
+
+.card-body {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 7px;
+  padding: 10px;
+}
+
+.card-heading-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.card-heading-line .title {
+  display: block;
+  flex: 0 1 auto;
+  margin: 0;
+  max-width: 36%;
+  min-width: 48px;
+  overflow: hidden;
+  font-size: 0.94rem;
+  line-height: 1.16;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  -webkit-line-clamp: unset;
+}
+
+.card-heading-line .meta {
+  flex: 1 1 48px;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--xeno-muted);
+  font-size: 0.74rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-heading-line .card-topline {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 5px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.card-heading-line .year,
+.card-heading-line .runtime,
+.card-heading-line .rating {
+  min-height: 19px;
+  padding: 2px 5px;
+  font-size: 0.62rem;
+  line-height: 1.1;
+}
+
+.card-heading-line .rating {
+  margin-left: 0;
+}
+
+.icon-button,
+.movie-card .remove-button,
+[data-theme="dark"] .icon-button,
+[data-theme="dark"] .movie-card .remove-button {
+  flex-basis: 24px;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  border-radius: 6px;
+  color: rgba(255, 139, 130, 0.62);
+  font-size: 0.86rem;
+  opacity: 0.72;
+  box-shadow: none;
+}
+
+.icon-button:hover,
+.movie-card .remove-button:hover,
+[data-theme="dark"] .icon-button:hover,
+[data-theme="dark"] .movie-card .remove-button:hover {
+  color: rgba(255, 184, 178, 0.9);
+  opacity: 0.9;
+  transform: none;
+}
+
+@media (max-width: 760px) {
+  .card-heading-line {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .card-heading-line .title {
+    max-width: calc(100% - 126px);
+  }
+
+  .card-heading-line .meta {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .card-heading-line .card-topline {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  .app-logo img {
+    animation: none !important;
+  }
 }

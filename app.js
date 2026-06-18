@@ -18,8 +18,11 @@ let collectionSearchTimer = null;
 const state = {
   user: loadUser(),
   movies: [],
+  moviesById: new Map(),
   collectionPickerMovies: [],
   collections: [],
+  collectionsById: new Map(),
+  collectionMovieIdSets: new Map(),
   libraryStats: { total: 0, watched: 0, unwatched: 0, inCollections: 0 },
   scopeStats: { total: 0, watched: 0, unwatched: 0 },
   libraryFilterOptions: { years: [], genres: [], directors: [] },
@@ -402,7 +405,7 @@ elements.cardsGrid.addEventListener("change", async (event) => {
   }
 
   const card = event.target.closest(".movie-card");
-  const movie = state.movies.find((item) => item.id === Number(card.dataset.id));
+  const movie = getMovieById(card.dataset.id);
   if (!movie) {
     return;
   }
@@ -431,7 +434,7 @@ elements.cardsGrid.addEventListener("click", async (event) => {
   }
 
   const card = removeButton.closest(".movie-card");
-  const movie = state.movies.find((item) => item.id === Number(card.dataset.id));
+  const movie = getMovieById(card.dataset.id);
 
   try {
     await apiFetch(`/api/movies/${card.dataset.id}`, { method: "DELETE" });
@@ -534,7 +537,9 @@ function logoutUser() {
   }
   state.user = null;
   state.movies = [];
+  state.collectionPickerMovies = [];
   state.collections = [];
+  rebuildLibraryIndexes();
   selectCollection("all", { shouldRender: false });
   state.visibleMovieLimit = PAGE_SIZE;
   state.hideWatched = false;
@@ -611,6 +616,7 @@ async function loadLibrary({ skipMigration = false } = {}) {
   const data = await apiFetch(`/api/library?${buildLibraryQuery()}`);
   state.movies = data.movies || [];
   state.collections = data.collections || [];
+  rebuildLibraryIndexes();
   state.libraryStats = data.stats || state.libraryStats;
   state.scopeStats = data.scopeStats || state.scopeStats;
   state.libraryFilterOptions = data.filterOptions || state.libraryFilterOptions;
@@ -823,8 +829,16 @@ function closeImportModal() {
 }
 
 function renderImportSummary(duplicates = []) {
-  const selected = state.importRows.filter((row) => row.selectedIndex >= 0).length;
-  const review = state.importRows.filter((row) => row.status === "review").length;
+  let selected = 0;
+  let review = 0;
+  for (const row of state.importRows) {
+    if (row.selectedIndex >= 0) {
+      selected += 1;
+    }
+    if (row.status === "review") {
+      review += 1;
+    }
+  }
   const skipped = state.importRows.length - selected;
   const parts = [
     `К добавлению: ${selected}`,
@@ -1093,13 +1107,14 @@ function renderLibraryFilterOptions() {
 
 function syncSelectOptions(select, values, emptyLabel, selectedValue) {
   const currentValues = [...new Set(values.filter(Boolean))];
+  const currentValueSet = new Set(currentValues);
   select.innerHTML = "";
   select.append(new Option(emptyLabel, ""));
   currentValues.forEach((value) => {
     select.append(new Option(value, value));
   });
 
-  const nextValue = currentValues.includes(selectedValue) ? selectedValue : "";
+  const nextValue = currentValueSet.has(selectedValue) ? selectedValue : "";
   select.value = nextValue;
   return nextValue;
 }
@@ -1223,7 +1238,6 @@ function renderCards() {
       poster.classList.add("placeholder");
     });
 
-    const originalTitle = movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : "";
     const rating = card.querySelector(".rating");
     const runtime = card.querySelector(".runtime");
 
@@ -1232,7 +1246,7 @@ function renderCards() {
     runtime.hidden = !movie.runtime;
     rating.textContent = movie.rating ? `IMDb ${movie.rating}` : "IMDb —";
     card.querySelector(".title").textContent = movie.title;
-    card.querySelector(".meta").textContent = [originalTitle, movie.genre, movie.director].filter(Boolean).join(" • ");
+    card.querySelector(".meta").textContent = [movie.director, movie.cast, movie.genre].filter(Boolean).join(" • ");
     const plot = card.querySelector(".plot");
     plot.textContent = movie.plot;
     card.querySelector(".watched-input").checked = movie.watched;
@@ -1325,7 +1339,7 @@ function resetPickedMovie() {
 }
 
 function openMovieDetailsFromCard(card) {
-  const movie = state.movies.find((item) => item.id === Number(card.dataset.id));
+  const movie = getMovieById(card.dataset.id);
   if (movie) {
     openMovieDetailsModal(movie);
   }
@@ -1418,8 +1432,7 @@ function getRandomResultAddAction(movie) {
   }
 
   if (selectedCollection) {
-    const collectionMovieIds = new Set(selectedCollection.movieIds.map(Number));
-    if (collectionMovieIds.has(localMovieId)) {
+    if (collectionHasMovie(selectedCollection, localMovieId)) {
       return {
         label: "В коллекции",
         disabled: true,
@@ -1531,11 +1544,27 @@ function getLibraryGenres() {
   return state.libraryFilterOptions.genres || [];
 }
 
+function rebuildLibraryIndexes() {
+  state.moviesById = new Map(state.movies.map((movie) => [Number(movie.id), movie]));
+  state.collectionsById = new Map(state.collections.map((collection) => [Number(collection.id), collection]));
+  state.collectionMovieIdSets = new Map(state.collections.map((collection) => {
+    return [Number(collection.id), new Set((collection.movieIds || []).map(Number))];
+  }));
+}
+
+function getMovieById(movieId) {
+  return state.moviesById.get(Number(movieId)) || null;
+}
+
 function getSelectedCollection() {
   if (state.selectedCollectionId === "all") {
     return null;
   }
-  return state.collections.find((collection) => collection.id === state.selectedCollectionId) || null;
+  return state.collectionsById.get(Number(state.selectedCollectionId)) || null;
+}
+
+function collectionHasMovie(collection, movieId) {
+  return state.collectionMovieIdSets.get(Number(collection?.id))?.has(Number(movieId)) || false;
 }
 
 function setLoading(isLoading) {

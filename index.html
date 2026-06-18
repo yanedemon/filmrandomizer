@@ -95,6 +95,8 @@
             <div class="random-controls">
               <button class="pick-button" id="pickMovie" type="button">Выбрать из добавленных</button>
               <button class="pick-button secondary-pick-button" id="pickExternalMovie" type="button">Случайный фильм</button>
+            </div>
+            <div class="random-settings-access">
               <button class="ghost-button random-settings-toggle" id="randomSettingsToggle" type="button" aria-expanded="false" aria-controls="randomSettings" data-state="closed">Настройки выбора</button>
             </div>
             <div class="random-settings-panel" id="randomSettings" data-state="closed" hidden>
@@ -313,13 +315,15 @@
       <article class="movie-card">
         <img class="poster" alt="">
         <div class="card-body">
-          <div class="card-topline">
-            <span class="year"></span>
-            <span class="runtime"></span>
-            <span class="rating"></span>
+          <div class="card-heading-line">
+            <h3 class="title"></h3>
+            <p class="meta"></p>
+            <div class="card-topline">
+              <span class="year"></span>
+              <span class="runtime"></span>
+              <span class="rating"></span>
+            </div>
           </div>
-          <h3 class="title"></h3>
-          <p class="meta"></p>
           <p class="plot"></p>
           <div class="card-actions">
             <label class="watched-toggle">
