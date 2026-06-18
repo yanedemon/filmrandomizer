@@ -1268,6 +1268,9 @@ function renderSearchResults(candidates) {
     main.className = "candidate-main";
     main.textContent = candidate.ruTitle || candidate.title || "Без названия";
 
+    const heading = document.createElement("span");
+    heading.className = "candidate-heading";
+
     const tags = document.createElement("span");
     tags.className = "candidate-tags";
     [
@@ -1290,7 +1293,8 @@ function renderSearchResults(candidates) {
     ].filter(Boolean).join(" • ");
     details.textContent = detailText ? `(${detailText})` : "";
 
-    option.append(main, tags, details);
+    heading.append(main, tags);
+    option.append(heading, details);
     list.append(option);
   });
 

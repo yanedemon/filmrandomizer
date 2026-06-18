@@ -310,23 +310,23 @@ input:focus {
 
 .candidate-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   max-height: 260px;
   overflow: auto;
 }
 
 .candidate-option {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   align-content: center;
   width: 100%;
-  min-height: 68px;
+  min-height: 52px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-strong);
   color: var(--ink);
-  padding: 11px 14px;
-  line-height: 1.28;
+  padding: 8px 12px;
+  line-height: 1.22;
   text-align: left;
 }
 
@@ -335,10 +335,19 @@ input:focus {
   box-shadow: var(--hover-shadow);
 }
 
+.candidate-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
 .candidate-main {
   display: block;
   min-width: 0;
-  font-weight: 850;
+  font-size: 0.95rem;
+  font-weight: 780;
   overflow-wrap: anywhere;
 }
 
@@ -347,28 +356,30 @@ input:focus {
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .candidate-tags {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 4px;
+  justify-content: flex-end;
 }
 
 .candidate-tag {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: 20px;
   border: 1px solid color-mix(in srgb, var(--teal) 34%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--teal) 14%, transparent);
   color: var(--teal-strong);
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 900;
-  padding: 0 8px;
+  padding: 0 6px;
+  white-space: nowrap;
 }
 
 .action-strip {
@@ -1518,8 +1529,11 @@ button,
 .movie-picker,
 .picked-details-loading {
   background:
+    repeating-linear-gradient(90deg, rgba(0, 255, 65, 0.06) 0 1px, transparent 1px 48px),
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.042) 0 1px, transparent 1px 48px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent),
     var(--soft-panel-bg);
+  background-size: 48px 48px, 48px 48px, 100% 100%, auto;
   backdrop-filter: blur(14px) saturate(1.1);
 }
 
@@ -2063,11 +2077,31 @@ body::after {
 .empty-state {
   border: 1px solid var(--xeno-line);
   background:
+    repeating-linear-gradient(90deg, rgba(0, 255, 65, 0.07) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.048) 0 1px, transparent 1px 56px),
+    radial-gradient(circle at 18% 16%, rgba(0, 255, 65, 0.09), transparent 22%),
     linear-gradient(180deg, rgba(0, 255, 65, 0.08), transparent 42%),
     linear-gradient(90deg, rgba(0, 229, 255, 0.055), transparent 36%),
     var(--xeno-panel);
+  background-size: 56px 56px, 56px 56px, 100% 100%, 100% 100%, 100% 100%, auto;
   box-shadow: var(--xeno-shadow), var(--xeno-inset);
   backdrop-filter: blur(10px) brightness(1.18) saturate(1.2);
+}
+
+[data-theme="dark"] .toolbar,
+[data-theme="dark"] .auth-section,
+[data-theme="dark"] .action-strip,
+[data-theme="dark"] .status-row,
+[data-theme="dark"] .collections-section,
+[data-theme="dark"] .movie-section {
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 255, 65, 0.075) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(0deg, rgba(0, 229, 255, 0.052) 0 1px, transparent 1px 56px),
+    radial-gradient(circle at 18% 16%, rgba(0, 255, 65, 0.09), transparent 22%),
+    linear-gradient(180deg, rgba(0, 255, 65, 0.08), transparent 42%),
+    linear-gradient(90deg, rgba(0, 229, 255, 0.055), transparent 36%),
+    var(--xeno-panel);
+  background-size: 56px 56px, 56px 56px, 100% 100%, 100% 100%, 100% 100%, auto;
 }
 
 .toolbar,
@@ -2180,11 +2214,16 @@ h1 {
 
 h2,
 h3,
-.title,
-.candidate-main {
+.title {
   color: var(--xeno-text);
   font-weight: 950;
   text-shadow: 0 0 12px rgba(0, 255, 65, 0.18);
+}
+
+.candidate-main {
+  color: var(--xeno-text);
+  font-weight: 780;
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.12);
 }
 
 .muted,
@@ -2587,6 +2626,16 @@ input::placeholder {
 
   .library-filters {
     grid-template-columns: 1fr;
+  }
+
+  .candidate-heading {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .candidate-tags {
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .rating-range,
