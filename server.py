@@ -130,6 +130,12 @@ def translate_sql(sql, backend):
     return translated
 
 
+def sql_column_name(column, backend):
+    if backend == "postgres" and column == "cast":
+        return '"cast"'
+    return column
+
+
 class DatabaseConnection:
     def __init__(self, connection, backend):
         self.connection = connection
@@ -223,7 +229,7 @@ def init_db():
                   runtime TEXT,
                   genre TEXT,
                   director TEXT,
-                  cast TEXT,
+                  "cast" TEXT,
                   plot TEXT,
                   watched INTEGER NOT NULL DEFAULT 0,
                   created_at BIGINT NOT NULL,
@@ -322,7 +328,7 @@ def init_db():
                 for row in db.execute("PRAGMA table_info(movies)")
             }
         if "cast" not in movie_columns:
-            db.execute("ALTER TABLE movies ADD COLUMN cast TEXT")
+            db.execute(f"ALTER TABLE movies ADD COLUMN {sql_column_name('cast', db.backend)} TEXT")
 
 
 def row_to_movie(row):
@@ -387,8 +393,9 @@ def import_database(path):
             for row in tables.get(table, []):
                 columns = list(row.keys())
                 placeholders = ", ".join("?" for _ in columns)
+                column_names = ", ".join(sql_column_name(column, db.backend) for column in columns)
                 db.execute(
-                    f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",
+                    f"INSERT INTO {table} ({column_names}) VALUES ({placeholders})",
                     [row[column] for column in columns],
                 )
         reset_database_sequences(db)
@@ -925,7 +932,7 @@ def save_movie_for_user(db, user_id, movie, collection_id=None):
             """
             INSERT INTO movies (
               user_id, imdb_id, title, original_title, year, poster, rating,
-              runtime, genre, director, cast, plot, watched, created_at
+              runtime, genre, director, "cast", plot, watched, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
