@@ -1189,15 +1189,12 @@ function renderCards() {
 
     card.querySelector(".year").textContent = movie.year || "год ?";
     runtime.textContent = movie.runtime || "";
-    runtime.title = movie.runtime ? `Длительность: ${movie.runtime}` : "";
     runtime.hidden = !movie.runtime;
     rating.textContent = movie.rating ? `IMDb ${movie.rating}` : "IMDb —";
-    rating.title = movie.rating ? `IMDb ${movie.rating}` : "Рейтинг не найден";
     card.querySelector(".title").textContent = movie.title;
     card.querySelector(".meta").textContent = [originalTitle, movie.genre, movie.director].filter(Boolean).join(" • ");
     const plot = card.querySelector(".plot");
     plot.textContent = movie.plot;
-    plot.title = movie.plot || "";
     card.querySelector(".watched-input").checked = movie.watched;
 
     fragment.append(card);
