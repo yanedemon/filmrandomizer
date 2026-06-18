@@ -76,7 +76,6 @@ button {
 .toolbar,
 .auth-section,
 .action-strip,
-.settings,
 .status-row,
 .collections-section,
 .movie-section {
@@ -86,11 +85,12 @@ button {
 }
 
 .toolbar {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(250px, 0.8fr) minmax(360px, 1.2fr);
   gap: 16px 24px;
   align-items: end;
-  padding: 22px;
+  padding: 18px;
   border-radius: 8px;
 }
 
@@ -125,6 +125,7 @@ h1 {
   font-size: clamp(1.7rem, 2.7vw, 2.6rem);
   line-height: 1;
   letter-spacing: 0;
+  white-space: nowrap;
 }
 
 .brand p,
@@ -147,14 +148,31 @@ h1 {
   align-items: end;
 }
 
-.user-panel {
-  grid-column: 2;
+.add-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  align-items: end;
+  justify-content: flex-end;
+}
+
+.user-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
   align-items: center;
   justify-content: flex-end;
   color: var(--muted);
-  font-weight: 800;
+  font-size: 0.76rem;
+  font-weight: 700;
+  opacity: 0.68;
+}
+
+.user-panel .ghost-button {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 0.74rem;
+  opacity: 0.82;
 }
 
 .auth-section {
@@ -346,9 +364,9 @@ input:focus {
 
 .action-strip {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
-  align-items: center;
+  align-items: stretch;
   margin-top: 16px;
   padding: 16px;
   border-radius: 8px;
@@ -357,6 +375,7 @@ input:focus {
 .random-left {
   display: grid;
   gap: 10px;
+  width: 100%;
   align-self: start;
 }
 
@@ -370,7 +389,9 @@ input:focus {
 .random-settings-panel {
   display: grid;
   gap: 10px;
-  min-width: min(100%, 360px);
+  width: calc(100% + 32px);
+  margin-inline: -16px;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface-strong);
@@ -384,8 +405,7 @@ input:focus {
   align-items: center;
 }
 
-.random-watched-toggle,
-.random-duration-toggle {
+.random-watched-toggle {
   display: inline-flex;
   gap: 7px;
   align-items: center;
@@ -394,8 +414,7 @@ input:focus {
   font-weight: 800;
 }
 
-.random-watched-toggle input,
-.random-duration-toggle input {
+.random-watched-toggle input {
   flex: 0 0 18px;
   width: 18px;
   height: 18px;
@@ -412,10 +431,6 @@ input:focus {
   border-radius: 8px;
   background: var(--surface);
   padding: 4px;
-}
-
-.duration-range.is-disabled {
-  opacity: 0.58;
 }
 
 .duration-option {
@@ -446,10 +461,6 @@ input:focus {
 .duration-option input:checked + span {
   background: var(--teal);
   color: white;
-}
-
-.duration-option input:disabled + span {
-  cursor: not-allowed;
 }
 
 .picked-details {
@@ -562,16 +573,6 @@ input:focus {
 .detail-list dd {
   min-width: 0;
   margin: 0;
-}
-
-.settings {
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  gap: 10px;
-  align-items: center;
-  margin-top: 16px;
-  padding: 14px 16px;
-  border-radius: 8px;
 }
 
 .file-button {
@@ -710,6 +711,38 @@ input:focus {
   margin-top: 16px;
   padding: 18px;
   border-radius: 8px;
+}
+
+.library-search-row {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 8px;
+}
+
+.library-search-row .library-search-field {
+  width: min(100%, 520px);
+}
+
+.library-filter-panel {
+  margin: 10px 0 8px;
+}
+
+.library-filter-panel summary {
+  width: max-content;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.filter-check {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 40px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .section-heading {
@@ -1047,13 +1080,8 @@ h2 {
 
   .add-form,
   .auth-form,
-  .action-strip,
-  .settings {
+  .action-strip {
     grid-template-columns: 1fr;
-  }
-
-  .settings {
-    align-items: stretch;
   }
 
   .section-heading {
@@ -1211,7 +1239,6 @@ body::after {
 .toolbar,
 .auth-section,
 .action-strip,
-.settings,
 .status-row,
 .collections-section,
 .movie-section {
@@ -1229,7 +1256,6 @@ body::after {
 [data-theme="dark"] .toolbar,
 [data-theme="dark"] .auth-section,
 [data-theme="dark"] .action-strip,
-[data-theme="dark"] .settings,
 [data-theme="dark"] .status-row,
 [data-theme="dark"] .collections-section,
 [data-theme="dark"] .movie-section {
@@ -1242,7 +1268,6 @@ body::after {
 .toolbar:hover,
 .auth-section:hover,
 .action-strip:hover,
-.settings:hover,
 .collections-section:hover,
 .movie-section:hover {
   border-color: color-mix(in srgb, var(--teal) 34%, var(--line));
@@ -1537,7 +1562,7 @@ button,
   transition: opacity 160ms var(--ease-out), border-color 160ms var(--ease-out);
 }
 
-.duration-range:not(.is-disabled) {
+.duration-range {
   border-color: color-mix(in srgb, var(--teal) 28%, var(--line));
 }
 
@@ -1560,14 +1585,12 @@ button,
 }
 
 .random-watched-toggle,
-.random-duration-toggle,
 .watched-toggle,
 .movie-check {
   transition: color 160ms var(--ease-out), transform 160ms var(--ease-out);
 }
 
 .random-watched-toggle:hover,
-.random-duration-toggle:hover,
 .watched-toggle:hover,
 .movie-check:hover {
   color: var(--teal-strong);
@@ -1947,22 +1970,7 @@ body::after {
 }
 
 .app-shell::before {
-  content: "";
-  position: fixed;
-  top: 52px;
-  right: max(18px, calc((100vw - 1180px) / 2));
-  z-index: -1;
-  width: min(48vw, 520px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background:
-    conic-gradient(from 0deg, transparent 0 66%, rgba(0, 255, 65, 0.58), rgba(0, 229, 255, 0.18), transparent 84%),
-    repeating-radial-gradient(circle, rgba(0, 255, 65, 0.22) 0 1px, transparent 1px 48px);
-  filter: blur(0.2px);
-  opacity: 0.24;
-  mix-blend-mode: color-dodge;
-  pointer-events: none;
-  animation: xenoRadarSweep 11s linear infinite;
+  content: none;
 }
 
 .app-shell::after {
@@ -1997,7 +2005,6 @@ body::after {
 .toolbar,
 .auth-section,
 .action-strip,
-.settings,
 .status-row,
 .collections-section,
 .movie-section,
@@ -2022,7 +2029,6 @@ body::after {
 .toolbar,
 .auth-section,
 .action-strip,
-.settings,
 .status-row,
 .collections-section,
 .movie-section {
@@ -2032,7 +2038,6 @@ body::after {
 .toolbar::before,
 .auth-section::before,
 .action-strip::before,
-.settings::before,
 .collections-section::before,
 .movie-section::before {
   position: absolute;
@@ -2048,7 +2053,7 @@ body::after {
 }
 
 .toolbar::before {
-  content: "SYSTEM // BOOT";
+  content: "SYSTEM BOOT";
 }
 
 .auth-section::before {
@@ -2057,10 +2062,6 @@ body::after {
 
 .action-strip::before {
   content: "SIGNAL LOCK";
-}
-
-.settings::before {
-  content: "CONTROL DECK";
 }
 
 .collections-section::before {
@@ -2074,7 +2075,6 @@ body::after {
 .toolbar:hover,
 .auth-section:hover,
 .action-strip:hover,
-.settings:hover,
 .collections-section:hover,
 .movie-section:hover,
 .movie-card:hover,
@@ -2126,6 +2126,12 @@ h1 {
   font-weight: 950;
   letter-spacing: 0;
   text-shadow: 0 0 8px rgba(0, 255, 65, 0.58), 0 0 28px rgba(0, 255, 65, 0.2);
+}
+
+@media (max-width: 760px) {
+  h1 {
+    font-size: clamp(1.35rem, 7vw, 2rem);
+  }
 }
 
 h2,
@@ -2259,8 +2265,9 @@ input::placeholder {
   animation: xenoPanelLock 360ms var(--ease-out) both;
 }
 
-.duration-range[data-state="disabled"] {
-  opacity: 0.42;
+.duration-range[data-state="idle"] {
+  border-color: rgba(0, 255, 65, 0.24);
+  box-shadow: var(--xeno-inset);
 }
 
 .duration-option input:checked + span,
@@ -2467,10 +2474,10 @@ input::placeholder {
 
 .library-filters {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) minmax(88px, 0.55fr) minmax(116px, 0.65fr) minmax(150px, 0.85fr) minmax(160px, 0.9fr) auto;
+  grid-template-columns: minmax(88px, 0.6fr) minmax(116px, 0.75fr) minmax(150px, 1fr) minmax(160px, 1fr) minmax(180px, auto) auto;
   gap: 10px;
   align-items: end;
-  margin: 16px 0 8px;
+  margin: 10px 0 8px;
   padding: 12px;
   border: 1px solid var(--xeno-line);
   border-radius: 8px;
@@ -2490,6 +2497,11 @@ input::placeholder {
   min-height: 40px;
 }
 
+.library-filter-panel summary {
+  color: var(--xeno-cyan);
+  text-shadow: 0 0 12px rgba(0, 229, 255, 0.42);
+}
+
 .genre-modal-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -2500,12 +2512,6 @@ input::placeholder {
 ::-webkit-scrollbar-thumb {
   background: rgba(0, 255, 65, 0.6);
   background-clip: content-box;
-}
-
-@keyframes xenoRadarSweep {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @keyframes xenoPanelLock {
@@ -2532,12 +2538,6 @@ input::placeholder {
 }
 
 @media (max-width: 760px) {
-  .app-shell::before {
-    top: 120px;
-    right: -170px;
-    width: 380px;
-  }
-
   .app-shell::after {
     display: none;
   }
@@ -2545,7 +2545,6 @@ input::placeholder {
   .toolbar::before,
   .auth-section::before,
   .action-strip::before,
-  .settings::before,
   .collections-section::before,
   .movie-section::before {
     position: static;

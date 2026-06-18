@@ -309,11 +309,11 @@ def score_candidate(query, candidate):
     return 10
 
 
-def search_movie_candidates(title):
+def search_movie_candidates(title, limit=8):
     wikidata_candidates = try_value(lambda: fetch_wikidata_candidates(title), [])
-    if wikidata_candidates:
-        return wikidata_candidates
-    return fetch_cinemeta_candidates(title)
+    candidates = wikidata_candidates if wikidata_candidates else fetch_cinemeta_candidates(title)
+    ranked = sorted(candidates, key=lambda candidate: score_candidate(title, candidate), reverse=True)
+    return ranked[:max(1, safe_int(limit, 8))]
 
 
 def fetch_movie_details(candidate):

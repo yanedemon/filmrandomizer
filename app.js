@@ -8,7 +8,11 @@ const LEGACY_MOVIES_STORAGE = "film-randomizer.movies";
 const PAGE_SIZE = 15;
 const GLITCH_CHARS = "&^%$#@01";
 const SEARCH_DEBOUNCE_MS = 250;
+const MOVIE_SEARCH_MIN_LENGTH = 3;
+const MOVIE_SEARCH_LIMIT = 5;
 
+let movieSearchTimer = null;
+let movieSearchRequestId = 0;
 let librarySearchTimer = null;
 let collectionSearchTimer = null;
 
@@ -65,7 +69,6 @@ const elements = {
   randomSettingsToggle: document.querySelector("#randomSettingsToggle"),
   randomSettings: document.querySelector("#randomSettings"),
   includeWatchedRandom: document.querySelector("#includeWatchedRandom"),
-  durationFilterEnabled: document.querySelector("#durationFilterEnabled"),
   durationRangeGroup: document.querySelector("#durationRangeGroup"),
   durationRangeInputs: document.querySelectorAll(".duration-range-input"),
   ratingRangeInputs: document.querySelectorAll(".rating-range-input"),
@@ -155,34 +158,24 @@ elements.logoutButton.addEventListener("click", logoutUser);
 
 elements.form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  window.clearTimeout(movieSearchTimer);
+  await runMovieSearch({ force: true });
+});
+
+elements.titleInput.addEventListener("input", () => {
   const title = elements.titleInput.value.trim();
-  if (!title) {
+  window.clearTimeout(movieSearchTimer);
+
+  if (title.length < MOVIE_SEARCH_MIN_LENGTH) {
+    movieSearchRequestId += 1;
+    hideSearchResults();
+    setLoading(false);
     return;
   }
 
-  setLoading(true);
-  hideSearchResults();
-  showMessage("Ищу фильм...");
-
-  try {
-    const candidates = await searchMovieCandidates(title);
-    if (!candidates.length) {
-      throw new Error("Фильм не найден.");
-    }
-
-    if (candidates.length > 1) {
-      state.pendingCandidates = candidates;
-      renderSearchResults(candidates);
-      showMessage("Выберите нужный фильм из списка.");
-      return;
-    }
-
-    await addMovieFromCandidate(candidates[0]);
-  } catch (error) {
-    showMessage(error.message, true);
-  } finally {
-    setLoading(false);
-  }
+  movieSearchTimer = window.setTimeout(() => {
+    runMovieSearch().catch((error) => showMessage(error.message, true));
+  }, SEARCH_DEBOUNCE_MS);
 });
 
 elements.searchResults.addEventListener("click", async (event) => {
@@ -273,10 +266,9 @@ elements.pickedDetails.addEventListener("click", (event) => {
 
 elements.includeWatchedRandom.addEventListener("change", renderRandomGenreSummary);
 
-elements.durationFilterEnabled.addEventListener("change", handleDurationFilterToggle);
-
 elements.durationRangeInputs.forEach((input) => {
   input.addEventListener("change", () => {
+    syncRandomDurationControls();
     renderRandomGenreSummary();
   });
 });
@@ -289,7 +281,7 @@ elements.ratingRangeInputs.forEach((input) => {
 
 elements.openRandomGenreModal.addEventListener("click", openRandomGenreModal);
 
-elements.clearWatched.addEventListener("click", toggleWatchedVisibility);
+elements.clearWatched.addEventListener("change", toggleWatchedVisibility);
 
 elements.createCollection.addEventListener("click", () => {
   openCollectionModal("create");
@@ -567,13 +559,8 @@ function toggleRandomSettings() {
   elements.appShell.dataset.randomSettings = isOpen ? "open" : "closed";
 }
 
-function handleDurationFilterToggle() {
-  syncRandomDurationControls();
-  renderRandomGenreSummary();
-}
-
 async function toggleWatchedVisibility() {
-  state.hideWatched = !state.hideWatched;
+  state.hideWatched = elements.clearWatched.checked;
   state.visibleMovieLimit = PAGE_SIZE;
   await loadLibrary({ skipMigration: true });
   showMessage(state.hideWatched ? "Просмотренные скрыты из выдачи." : "Просмотренные снова показаны.");
@@ -687,6 +674,49 @@ async function migrateLegacyMovies() {
   }
 }
 
+async function runMovieSearch({ force = false } = {}) {
+  const title = elements.titleInput.value.trim();
+  const requestId = movieSearchRequestId + 1;
+  movieSearchRequestId = requestId;
+
+  if (title.length < MOVIE_SEARCH_MIN_LENGTH) {
+    hideSearchResults();
+    setLoading(false);
+    if (force) {
+      showMessage(`Введите минимум ${MOVIE_SEARCH_MIN_LENGTH} символа для поиска.`, true);
+    }
+    return;
+  }
+
+  setLoading(true);
+  hideSearchResults();
+  showMessage("Ищу фильм...");
+
+  try {
+    const candidates = (await searchMovieCandidates(title)).slice(0, MOVIE_SEARCH_LIMIT);
+    if (requestId !== movieSearchRequestId) {
+      return;
+    }
+
+    state.pendingCandidates = candidates;
+    if (!candidates.length) {
+      showMessage("Фильм не найден.", true);
+      return;
+    }
+
+    renderSearchResults(candidates);
+    showMessage("Выберите нужный фильм из списка.");
+  } catch (error) {
+    if (requestId === movieSearchRequestId) {
+      showMessage(error.message, true);
+    }
+  } finally {
+    if (requestId === movieSearchRequestId) {
+      setLoading(false);
+    }
+  }
+}
+
 async function addMovieFromCandidate(candidate) {
   const result = await apiFetch("/api/movies/from-candidate", {
     method: "POST",
@@ -754,7 +784,11 @@ function showMovieSaveResult(result) {
 }
 
 async function searchMovieCandidates(title) {
-  const data = await apiFetch(`/api/catalog/search?q=${encodeURIComponent(title)}`);
+  const params = new URLSearchParams({
+    q: title,
+    limit: String(MOVIE_SEARCH_LIMIT),
+  });
+  const data = await apiFetch(`/api/catalog/search?${params}`);
   return data.candidates || [];
 }
 
@@ -913,8 +947,8 @@ function render() {
   renderRandomGenreSummary();
   renderCards();
   refreshRandomResultDetails();
-  elements.clearWatched.disabled = !state.scopeStats.watched;
-  elements.clearWatched.textContent = state.hideWatched ? "Показать просмотренные" : "Убрать просмотренные";
+  elements.clearWatched.checked = state.hideWatched;
+  elements.clearWatched.disabled = !state.scopeStats.watched && !state.hideWatched;
   elements.pickMovie.disabled = !state.scopeStats.total;
   elements.pickExternalMovie.disabled = state.isLoading;
 }
@@ -1074,6 +1108,7 @@ function syncSelectOptions(select, values, emptyLabel, selectedValue) {
 
 function resetLibraryFilters() {
   state.librarySearch = "";
+  state.hideWatched = false;
   state.libraryFilters = {
     year: "",
     rating: "",
@@ -1268,7 +1303,7 @@ function refreshRandomResultDetails() {
 
 function resetPickedMovie() {
   state.randomResultMovie = null;
-  elements.pickedMovie.innerHTML = "<span class=\"muted\">Непросмотренные фильмы ждут своего часа.</span>";
+  elements.pickedMovie.innerHTML = "";
   elements.pickedDetails.hidden = true;
   elements.pickedDetails.innerHTML = "";
 }
@@ -1439,7 +1474,7 @@ function buildRandomRequest(source) {
     source,
     collectionId: String(state.selectedCollectionId),
     includeWatched: elements.includeWatchedRandom.checked,
-    durationFilterEnabled: elements.durationFilterEnabled.checked,
+    durationFilterEnabled: getSelectedDurationRange() !== "any",
     durationRange: getSelectedDurationRange(),
     ratingRange: getSelectedRatingRange(),
     genreFilters: [...state.randomGenreFilters],
@@ -1449,7 +1484,7 @@ function buildRandomRequest(source) {
 }
 
 function hasActiveRandomFilters() {
-  return elements.durationFilterEnabled.checked
+  return getSelectedDurationRange() !== "any"
     || getSelectedRatingRange() !== "any"
     || state.randomGenreFilters.size > 0;
 }
@@ -1464,16 +1499,12 @@ function getRandomEmptyMessage() {
 }
 
 function syncRandomDurationControls() {
-  const enabled = elements.durationFilterEnabled.checked;
-  elements.durationRangeGroup.classList.toggle("is-disabled", !enabled);
-  elements.durationRangeGroup.dataset.state = enabled ? "active" : "disabled";
-  elements.durationRangeInputs.forEach((input) => {
-    input.disabled = !enabled;
-  });
+  const enabled = getSelectedDurationRange() !== "any";
+  elements.durationRangeGroup.dataset.state = enabled ? "active" : "idle";
 }
 
 function getSelectedDurationRange() {
-  return [...elements.durationRangeInputs].find((input) => input.checked)?.value || "standard";
+  return [...elements.durationRangeInputs].find((input) => input.checked)?.value || "any";
 }
 
 function getSelectedRatingRange() {
@@ -1493,8 +1524,7 @@ function getSelectedCollection() {
 
 function setLoading(isLoading) {
   state.isLoading = isLoading;
-  elements.form.querySelector("button").disabled = isLoading;
-  elements.titleInput.disabled = isLoading;
+  elements.form.querySelector("button[type='submit']").disabled = isLoading;
   elements.searchResults.querySelectorAll("button").forEach((button) => {
     button.disabled = isLoading;
   });

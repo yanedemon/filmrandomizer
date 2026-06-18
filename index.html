@@ -38,11 +38,15 @@
 
     <main class="app-shell" id="appShell" data-state="boot" data-random-settings="closed">
       <section class="toolbar" aria-label="Панель приложения">
+        <div class="user-panel" id="userPanel" hidden>
+          <span id="currentUser"></span>
+          <button class="ghost-button" id="logoutButton" type="button">Выйти</button>
+        </div>
+
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">XO</span>
           <div>
             <h1 class="terminal-text" data-terminal-reveal>XENO-FR // ARCHIVE</h1>
-            <p class="terminal-text" data-terminal-reveal>закрытый терминал выбора фильмов</p>
           </div>
         </div>
 
@@ -58,13 +62,12 @@
               required
             >
           </label>
-          <button class="primary-button" type="submit">Сохранить</button>
+          <div class="add-actions">
+            <label class="ghost-button file-button" for="movieImportFile">Импорт TXT</label>
+            <input id="movieImportFile" type="file" accept=".txt,text/plain" hidden>
+            <button class="primary-button" type="submit">Сохранить</button>
+          </div>
         </form>
-
-        <div class="user-panel" id="userPanel" hidden>
-          <span id="currentUser"></span>
-          <button class="ghost-button" id="logoutButton" type="button">Выйти</button>
-        </div>
 
         <div class="search-results" id="searchResults" hidden></div>
       </section>
@@ -103,21 +106,22 @@
                 </label>
               </div>
               <div class="random-setting-row">
-                <label class="random-duration-toggle">
-                  <input id="durationFilterEnabled" type="checkbox">
-                  <span>Длительность</span>
-                </label>
-                <div class="duration-range" id="durationRangeGroup" aria-label="Диапазон длительности" data-state="disabled">
+                <span class="random-setting-label">Длительность</span>
+                <div class="duration-range" id="durationRangeGroup" aria-label="Диапазон длительности" data-state="active">
                   <label class="duration-option">
-                    <input class="duration-range-input" type="radio" name="durationRange" value="short" disabled>
+                    <input class="duration-range-input" type="radio" name="durationRange" value="any" checked>
+                    <span>Любая</span>
+                  </label>
+                  <label class="duration-option">
+                    <input class="duration-range-input" type="radio" name="durationRange" value="short">
                     <span>Короткий</span>
                   </label>
                   <label class="duration-option">
-                    <input class="duration-range-input" type="radio" name="durationRange" value="standard" checked disabled>
+                    <input class="duration-range-input" type="radio" name="durationRange" value="standard">
                     <span>Стандартный</span>
                   </label>
                   <label class="duration-option">
-                    <input class="duration-range-input" type="radio" name="durationRange" value="long" disabled>
+                    <input class="duration-range-input" type="radio" name="durationRange" value="long">
                     <span>Длинный</span>
                   </label>
                 </div>
@@ -149,15 +153,8 @@
               </div>
             </div>
           </div>
-          <div class="picked-movie" id="pickedMovie" aria-live="polite">
-            <span class="muted">Непросмотренные фильмы ждут своего часа.</span>
-          </div>
+          <div class="picked-movie" id="pickedMovie" aria-live="polite"></div>
           <div class="picked-details" id="pickedDetails" hidden></div>
-        </section>
-
-        <section class="settings" aria-label="Настройки">
-          <label class="ghost-button file-button" for="movieImportFile">Импорт TXT</label>
-          <input id="movieImportFile" type="file" accept=".txt,text/plain" hidden>
         </section>
 
         <section class="status-row" aria-label="Статистика">
@@ -194,42 +191,50 @@
         <section class="movie-section" aria-labelledby="cardsTitle">
           <div class="section-heading">
             <h2 id="cardsTitle">Все фильмы</h2>
-            <button class="ghost-button danger" id="clearWatched" type="button">Убрать просмотренные</button>
           </div>
-          <div class="library-filters" aria-label="Фильтры библиотеки">
+          <div class="library-search-row">
             <label class="field library-search-field">
               <span>Поиск</span>
               <input id="librarySearch" type="search" placeholder="Название, жанр, режиссёр">
             </label>
-            <label class="field">
-              <span>Год</span>
-              <select id="yearFilter">
-                <option value="">Все</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>IMDb</span>
-              <select id="ratingFilter">
-                <option value="">Любой</option>
-                <option value="low">до 5.5</option>
-                <option value="medium">5.6-7.5</option>
-                <option value="high">выше 7.6</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Жанр</span>
-              <select id="genreFilter">
-                <option value="">Все</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Режиссёр</span>
-              <select id="directorFilter">
-                <option value="">Все</option>
-              </select>
-            </label>
-            <button class="ghost-button compact-action-button" id="resetLibraryFilters" type="button">Сбросить</button>
           </div>
+          <details class="library-filter-panel">
+            <summary>Фильтры</summary>
+            <div class="library-filters" aria-label="Фильтры библиотеки">
+              <label class="field">
+                <span>Год</span>
+                <select id="yearFilter">
+                  <option value="">Все</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>IMDb</span>
+                <select id="ratingFilter">
+                  <option value="">Любой</option>
+                  <option value="low">до 5.5</option>
+                  <option value="medium">5.6-7.5</option>
+                  <option value="high">выше 7.6</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Жанр</span>
+                <select id="genreFilter">
+                  <option value="">Все</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Режиссёр</span>
+                <select id="directorFilter">
+                  <option value="">Все</option>
+                </select>
+              </label>
+              <label class="filter-check">
+                <input id="clearWatched" type="checkbox">
+                <span>Скрыть просмотренные</span>
+              </label>
+              <button class="ghost-button compact-action-button" id="resetLibraryFilters" type="button">Сбросить</button>
+            </div>
+          </details>
           <div class="message" id="message" role="status" aria-live="polite"></div>
           <div class="cards-grid" id="cardsGrid"></div>
           <button class="ghost-button show-more" id="showMoreMovies" type="button" hidden>Показать ещё</button>
