@@ -5,7 +5,7 @@ import {
 
 const USER_STORAGE = "film-randomizer.user";
 const LEGACY_MOVIES_STORAGE = "film-randomizer.movies";
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 9;
 const SEARCH_DEBOUNCE_MS = 250;
 const MOVIE_SEARCH_MIN_LENGTH = 3;
 const MOVIE_SEARCH_LIMIT = 5;
@@ -30,7 +30,8 @@ const state = {
   selectedCollectionId: "all",
   randomResultMovie: null,
   pendingCandidates: [],
-  visibleMovieLimit: PAGE_SIZE,
+  libraryNextOffset: 0,
+  libraryPageCache: new Map(),
   hideWatched: false,
   collectionModalMode: "create",
   editingCollectionId: null,
@@ -47,6 +48,8 @@ const state = {
   randomGenreFilters: new Set(),
   importRows: [],
   isLoading: false,
+  isLibraryLoading: false,
+  libraryRequestId: 0,
   isMigratingLegacy: false,
   recentLibraryRandomIds: [],
   recentExternalRandomKeys: [],
@@ -148,6 +151,7 @@ elements.authForm.addEventListener("submit", async (event) => {
     state.user = response.user;
     saveUser();
     elements.password.value = "";
+    invalidateLibraryCache();
     renderShell();
     await loadLibrary();
     showMessage(action === "register" ? "Пользователь создан." : "Вы вошли.");
@@ -348,6 +352,7 @@ elements.collectionForm.addEventListener("submit", async (event) => {
       showMessage("Коллекция создана.");
     }
     closeCollectionModal();
+    invalidateLibraryCache();
     await loadLibrary();
   } catch (error) {
     showMessage(error.message, true);
@@ -363,6 +368,7 @@ elements.deleteCollection.addEventListener("click", async () => {
     await apiFetch(`/api/collections/${state.editingCollectionId}`, { method: "DELETE" });
     state.selectedCollectionId = "all";
     closeCollectionModal();
+    invalidateLibraryCache();
     await loadLibrary();
     showMessage("Коллекция удалена. Фильмы остались в библиотеке.");
   } catch (error) {
@@ -371,13 +377,12 @@ elements.deleteCollection.addEventListener("click", async () => {
 });
 
 elements.showMoreMovies.addEventListener("click", async () => {
-  state.visibleMovieLimit += PAGE_SIZE;
-  await loadLibrary({ skipMigration: true });
+  await loadLibrary({ skipMigration: true, append: true });
 });
 
 elements.librarySearch.addEventListener("input", () => {
   state.librarySearch = elements.librarySearch.value.trim();
-  state.visibleMovieLimit = PAGE_SIZE;
+  resetLibraryPaging();
   window.clearTimeout(librarySearchTimer);
   librarySearchTimer = window.setTimeout(() => {
     loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
@@ -392,7 +397,7 @@ elements.librarySearch.addEventListener("input", () => {
 ].forEach(([key, element]) => {
   element.addEventListener("change", () => {
     state.libraryFilters[key] = element.value;
-    state.visibleMovieLimit = PAGE_SIZE;
+    resetLibraryPaging();
     loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
   });
 });
@@ -416,6 +421,7 @@ elements.cardsGrid.addEventListener("change", async (event) => {
       body: JSON.stringify({ watched: event.target.checked }),
     });
     Object.assign(movie, response.movie);
+    invalidateLibraryCache();
     await loadLibrary({ skipMigration: true });
   } catch (error) {
     showMessage(error.message, true);
@@ -438,6 +444,7 @@ elements.cardsGrid.addEventListener("click", async (event) => {
 
   try {
     await apiFetch(`/api/movies/${card.dataset.id}`, { method: "DELETE" });
+    invalidateLibraryCache();
     await loadLibrary();
     showMessage(movie ? `Удалено: ${movie.title}` : "Карточка удалена.");
   } catch (error) {
@@ -539,9 +546,12 @@ function logoutUser() {
   state.movies = [];
   state.collectionPickerMovies = [];
   state.collections = [];
+  state.libraryPageCache.clear();
+  state.libraryNextOffset = 0;
+  state.isLibraryLoading = false;
+  state.libraryRequestId += 1;
   rebuildLibraryIndexes();
   selectCollection("all", { shouldRender: false });
-  state.visibleMovieLimit = PAGE_SIZE;
   state.hideWatched = false;
   localStorage.removeItem(USER_STORAGE);
   hideSearchResults();
@@ -564,14 +574,14 @@ function toggleRandomSettings() {
 
 async function toggleWatchedVisibility() {
   state.hideWatched = elements.clearWatched.checked;
-  state.visibleMovieLimit = PAGE_SIZE;
+  resetLibraryPaging();
   await loadLibrary({ skipMigration: true });
   showMessage(state.hideWatched ? "Просмотренные скрыты из выдачи." : "Просмотренные снова показаны.");
 }
 
 function selectCollection(collectionId, { shouldRender = true } = {}) {
   state.selectedCollectionId = collectionId;
-  state.visibleMovieLimit = PAGE_SIZE;
+  resetLibraryPaging();
   state.hideWatched = false;
   if (shouldRender) {
     loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
@@ -601,6 +611,7 @@ async function apiFetch(path, options = {}) {
     if (response.status === 401) {
       state.user = null;
       localStorage.removeItem(USER_STORAGE);
+      invalidateLibraryCache();
       renderShell();
     }
     throw new Error(data.error || "Ошибка запроса.");
@@ -608,30 +619,59 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-async function loadLibrary({ skipMigration = false } = {}) {
+async function loadLibrary({ skipMigration = false, append = false } = {}) {
   if (!state.user) {
     return;
   }
 
-  const data = await apiFetch(`/api/library?${buildLibraryQuery()}`);
-  state.movies = data.movies || [];
-  state.collections = data.collections || [];
-  rebuildLibraryIndexes();
-  state.libraryStats = data.stats || state.libraryStats;
-  state.scopeStats = data.scopeStats || state.scopeStats;
-  state.libraryFilterOptions = data.filterOptions || state.libraryFilterOptions;
-  state.libraryTotal = data.total || 0;
-  if (state.selectedCollectionId !== "all" && !getSelectedCollection()) {
-    state.selectedCollectionId = "all";
+  if (append && state.isLibraryLoading) {
+    return;
   }
-  renderShell();
-  render();
-  if (!skipMigration) {
-    await migrateLegacyMovies();
+
+  const requestId = state.libraryRequestId + 1;
+  state.libraryRequestId = requestId;
+  state.isLibraryLoading = true;
+  elements.showMoreMovies.disabled = true;
+
+  try {
+    const offset = append ? state.libraryNextOffset : 0;
+    const cacheKey = `${buildLibraryCacheKey()}|offset=${offset}`;
+    let data = state.libraryPageCache.get(cacheKey);
+
+    if (!data) {
+      data = await apiFetch(`/api/library?${buildLibraryQuery(offset)}`);
+      state.libraryPageCache.set(cacheKey, data);
+    }
+
+    if (requestId !== state.libraryRequestId) {
+      return;
+    }
+
+    state.movies = append ? appendMoviePage(state.movies, data.movies || []) : data.movies || [];
+    state.collections = data.collections || [];
+    rebuildLibraryIndexes();
+    state.libraryStats = data.stats || state.libraryStats;
+    state.scopeStats = data.scopeStats || state.scopeStats;
+    state.libraryFilterOptions = data.filterOptions || state.libraryFilterOptions;
+    state.libraryTotal = data.total || 0;
+    state.libraryNextOffset = state.movies.length;
+    if (state.selectedCollectionId !== "all" && !getSelectedCollection()) {
+      state.selectedCollectionId = "all";
+    }
+    renderShell();
+    render({ appendCards: append });
+    if (!skipMigration) {
+      await migrateLegacyMovies();
+    }
+  } finally {
+    if (requestId === state.libraryRequestId) {
+      state.isLibraryLoading = false;
+      updateShowMoreButton();
+    }
   }
 }
 
-function buildLibraryQuery() {
+function buildLibraryCacheKey() {
   const params = new URLSearchParams({
     collectionId: String(state.selectedCollectionId),
     search: state.librarySearch,
@@ -640,10 +680,48 @@ function buildLibraryQuery() {
     genre: state.libraryFilters.genre,
     director: state.libraryFilters.director,
     hideWatched: state.hideWatched ? "1" : "",
-    limit: String(state.visibleMovieLimit),
-    offset: "0",
   });
   return params.toString();
+}
+
+function buildLibraryQuery(offset = 0) {
+  const params = new URLSearchParams(buildLibraryCacheKey());
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String(offset));
+  return params.toString();
+}
+
+function appendMoviePage(currentMovies, nextMovies) {
+  const seenIds = new Set(currentMovies.map((movie) => Number(movie.id)));
+  const merged = [...currentMovies];
+  nextMovies.forEach((movie) => {
+    const movieId = Number(movie.id);
+    if (!seenIds.has(movieId)) {
+      seenIds.add(movieId);
+      merged.push(movie);
+    }
+  });
+  return merged;
+}
+
+function resetLibraryPaging() {
+  state.libraryNextOffset = 0;
+}
+
+function invalidateLibraryCache() {
+  state.libraryPageCache.clear();
+  resetLibraryPaging();
+}
+
+function updateShowMoreButton() {
+  const remaining = state.libraryTotal - state.movies.length;
+  elements.showMoreMovies.hidden = remaining <= 0;
+  elements.showMoreMovies.disabled = state.isLibraryLoading;
+  elements.showMoreMovies.textContent = state.isLibraryLoading
+    ? "Загружаю..."
+    : remaining > 0
+      ? `Показать ещё ${Math.min(PAGE_SIZE, remaining)}`
+      : "Показать ещё";
 }
 
 async function migrateLegacyMovies() {
@@ -671,6 +749,7 @@ async function migrateLegacyMovies() {
       });
     }
     localStorage.removeItem(LEGACY_MOVIES_STORAGE);
+    invalidateLibraryCache();
     await loadLibrary({ skipMigration: true });
     showMessage(`Импортировано из старого хранилища: ${legacyMovies.length}`);
   } finally {
@@ -730,6 +809,7 @@ async function addMovieFromCandidate(candidate) {
     }),
   });
   elements.titleInput.value = "";
+  invalidateLibraryCache();
   await loadLibrary({ skipMigration: true });
   showMovieSaveResult(result);
 }
@@ -763,6 +843,7 @@ async function saveMovieToLibrary(movie) {
       collectionId: getSelectedCollection()?.id || "",
     }),
   });
+  invalidateLibraryCache();
   await loadLibrary({ skipMigration: true });
   return result;
 }
@@ -928,6 +1009,7 @@ async function confirmImportRows() {
     }
 
     closeImportModal();
+    invalidateLibraryCache();
     await loadLibrary({ skipMigration: true });
     showMessage(`Импортировано: ${added}${skipped ? `, пропущено: ${skipped}` : ""}`);
   } catch (error) {
@@ -952,12 +1034,12 @@ function renderShell() {
   }
 }
 
-function render() {
+function render({ appendCards = false } = {}) {
   renderStats();
   renderCollections();
   renderLibraryFilterOptions();
   renderRandomGenreSummary();
-  renderCards();
+  renderCards({ appendCards });
   refreshRandomResultDetails();
   elements.clearWatched.checked = state.hideWatched;
   elements.clearWatched.disabled = !state.scopeStats.watched && !state.hideWatched;
@@ -1128,7 +1210,7 @@ function resetLibraryFilters() {
     genre: "",
     director: "",
   };
-  state.visibleMovieLimit = PAGE_SIZE;
+  resetLibraryPaging();
   loadLibrary({ skipMigration: true }).catch((error) => showMessage(error.message, true));
 }
 
@@ -1203,26 +1285,38 @@ function toggleSetValue(targetSet, value, isSelected) {
   }
 }
 
-function renderCards() {
+function renderCards({ appendCards = false } = {}) {
   const selected = getSelectedCollection();
   elements.cardsTitle.textContent = selected ? selected.name : "Все фильмы";
 
   if (!state.user) {
     elements.cardsGrid.innerHTML = "";
     elements.showMoreMovies.hidden = true;
+    elements.showMoreMovies.disabled = false;
     return;
   }
 
   if (!state.movies.length) {
     elements.cardsGrid.innerHTML = "<div class=\"empty-state\">Здесь пока нет фильмов.</div>";
     elements.showMoreMovies.hidden = true;
+    elements.showMoreMovies.disabled = false;
     return;
   }
 
-  elements.cardsGrid.innerHTML = "";
+  const renderedIds = appendCards
+    ? new Set([...elements.cardsGrid.querySelectorAll(".movie-card")].map((card) => Number(card.dataset.id)))
+    : new Set();
+  const moviesToRender = appendCards
+    ? state.movies.filter((movie) => !renderedIds.has(Number(movie.id)))
+    : state.movies;
+
+  if (!appendCards) {
+    elements.cardsGrid.innerHTML = "";
+  }
+
   const fragment = document.createDocumentFragment();
 
-  state.movies.forEach((movie) => {
+  moviesToRender.forEach((movie) => {
     const card = elements.template.content.firstElementChild.cloneNode(true);
     card.dataset.id = movie.id;
     card.tabIndex = 0;
@@ -1246,7 +1340,9 @@ function renderCards() {
     runtime.hidden = !movie.runtime;
     rating.textContent = movie.rating ? `IMDb ${movie.rating}` : "IMDb —";
     card.querySelector(".title").textContent = movie.title;
-    card.querySelector(".meta").textContent = [movie.director, movie.cast, movie.genre].filter(Boolean).join(" • ");
+    const director = card.querySelector(".director");
+    director.textContent = movie.director || "Режиссёр не найден";
+    director.hidden = !movie.director;
     const plot = card.querySelector(".plot");
     plot.textContent = movie.plot;
     card.querySelector(".watched-input").checked = movie.watched;
@@ -1255,9 +1351,7 @@ function renderCards() {
   });
 
   elements.cardsGrid.append(fragment);
-  const remaining = state.libraryTotal - state.movies.length;
-  elements.showMoreMovies.hidden = remaining <= 0;
-  elements.showMoreMovies.textContent = remaining > 0 ? `Показать ещё ${Math.min(PAGE_SIZE, remaining)}` : "Показать ещё";
+  updateShowMoreButton();
 }
 
 function renderSearchResults(candidates) {
