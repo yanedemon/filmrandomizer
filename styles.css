@@ -127,6 +127,7 @@ h1 {
 .field span,
 .status-row span,
 .meta,
+.director,
 .plot {
   color: var(--muted);
 }
@@ -912,7 +913,8 @@ h2 {
   -webkit-line-clamp: 2;
 }
 
-.meta {
+.meta,
+.director {
   overflow: hidden;
   font-size: 0.8rem;
   text-overflow: ellipsis;
@@ -2231,6 +2233,7 @@ h3,
 .field span,
 .status-row span,
 .meta,
+.director,
 .plot,
 .candidate-details,
 .import-title span {
@@ -2973,18 +2976,15 @@ body::before,
 }
 
 .card-heading-line {
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
   min-width: 0;
 }
 
 .card-heading-line .title {
   display: block;
-  flex: 0 1 auto;
   margin: 0;
-  max-width: 36%;
-  min-width: 48px;
   overflow: hidden;
   font-size: 0.94rem;
   line-height: 1.16;
@@ -2994,13 +2994,11 @@ body::before,
   -webkit-line-clamp: unset;
 }
 
-.card-heading-line .meta {
-  flex: 1 1 48px;
-  min-width: 0;
+.card-heading-line .director {
   margin: 0;
   overflow: hidden;
   color: var(--xeno-muted);
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3008,11 +3006,10 @@ body::before,
 
 .card-heading-line .card-topline {
   display: flex;
-  flex: 0 0 auto;
   flex-wrap: nowrap;
   gap: 5px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   min-width: 0;
 }
 
@@ -3066,22 +3063,8 @@ body::before,
     max-width: none;
   }
 
-  .card-heading-line {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
-  .card-heading-line .title {
-    max-width: calc(100% - 126px);
-  }
-
-  .card-heading-line .meta {
-    flex-basis: 100%;
-    order: 3;
-  }
-
   .card-heading-line .card-topline {
-    margin-left: auto;
+    flex-wrap: wrap;
   }
 }
 
